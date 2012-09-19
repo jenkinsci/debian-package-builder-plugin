@@ -7,7 +7,7 @@
     <version>1.476</version><!-- which version of Jenkins is this plugin built against? -->
   </parent>
 
-  <groupId>ru.yandex.jenkins.plugins</groupId>
+  <groupId>ru.yandex.jenkins.plugins.debuilder</groupId>
   <artifactId>debian-package-builder</artifactId>
   <version>1.0</version>
   <packaging>hpi</packaging>
