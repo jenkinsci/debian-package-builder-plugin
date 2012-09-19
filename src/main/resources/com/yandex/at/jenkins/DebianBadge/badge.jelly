@@ -1,0 +1,3 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <span style="padding:1px;border:${it.border} solid ${it.borderColor};margin:0px;background:${it.background};color:${it.color}">${it.text}</span>
+</j:jelly>
