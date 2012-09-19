@@ -1,4 +1,4 @@
-package ru.yandex.jenkins.plugins;
+package ru.yandex.jenkins.plugins.debuilder;
 
 import hudson.Launcher;
 import hudson.model.BuildListener;

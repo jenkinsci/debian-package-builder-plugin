@@ -1,4 +1,4 @@
-package ru.yandex.jenkins.plugins;
+package ru.yandex.jenkins.plugins.debuilder;
 
 import hudson.Extension;
 import hudson.FilePath;
