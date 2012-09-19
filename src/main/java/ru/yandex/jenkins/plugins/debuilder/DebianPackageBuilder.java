@@ -49,7 +49,7 @@ import org.tmatesoft.svn.core.SVNLogEntry;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 
-import ru.yandex.jenkins.plugins.DebUtils.Runner;
+import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
 
 public class DebianPackageBuilder extends Builder {

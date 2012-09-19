@@ -42,7 +42,7 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationProvider;
 
-import ru.yandex.jenkins.plugins.DebUtils.Runner;
+import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
 
 public class DebianPackagePublisher extends Recorder implements Serializable {
