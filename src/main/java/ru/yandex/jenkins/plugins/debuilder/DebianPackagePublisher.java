@@ -97,7 +97,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return remoteKey.getRemote();
 	}
 
-	private void generateDuploadConf(String filePath, AbstractBuild<?, ?> build) throws IOException, InterruptedException {
+	private void generateDuploadConf(String filePath, AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
 		String confTemplate =
 				"package config;\n\n" +
 				"$default_host = '${name}';\n\n" +
@@ -125,9 +125,11 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		StrSubstitutor substitutor = new StrSubstitutor(values);
 		String conf = substitutor.replace(confTemplate);
 
-		FilePath duploadConf =  new FilePath(build.getWorkspace(), filePath);
+		FilePath duploadConf = build.getWorkspace().createTempFile("dupload", "conf");
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
+
+		runner.runCommand("sudo mv {0} {1}", duploadConf.getRemote(), filePath);
 	}
 
 	@Override
@@ -148,8 +150,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		String duploadConfPath = "/etc/dupload.conf";
 
 		try {
-			runner.runCommand("apt-get install dupload devscripts");
-			generateDuploadConf(duploadConfPath, build);
+			runner.runCommand("sudo apt-get install dupload devscripts");
+			generateDuploadConf(duploadConfPath, build, runner);
 
 			List<String> builtModules = new ArrayList<String>();
 

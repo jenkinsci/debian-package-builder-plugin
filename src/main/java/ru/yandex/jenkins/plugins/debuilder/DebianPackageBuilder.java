@@ -80,8 +80,8 @@ public class DebianPackageBuilder extends Builder {
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
 		try {
-			runner.runCommand("apt-get update");
-			runner.runCommand("apt-get install aptitude pbuilder");
+			runner.runCommand("sudo apt-get update");
+			runner.runCommand("sudo apt-get install aptitude pbuilder");
 
 			importKeys(workspace, runner);
 
@@ -99,7 +99,7 @@ public class DebianPackageBuilder extends Builder {
 				writeChangelog(build, listener, remoteDebian, runner, changes);
 			}
 
-			runner.runCommand("cd {0} && /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			runner.runCommand("cd {0} && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
 			runner.runCommand("cd {0} && debuild --check-dirname-level 0 -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
 
 			archiveArtifacts(build, runner, latestVersion);
