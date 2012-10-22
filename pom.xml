@@ -12,7 +12,7 @@
   <version>1.2-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <url>https://wiki.jenkins-ci.org/display/JENKINS/Debian+Package+Builder+Plugin</url>
-  <name>Debian Package Builder</name>name>
+  <name>Debian Package Builder</name>
 
   <developers>
     <developer>
