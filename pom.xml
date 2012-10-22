@@ -11,6 +11,27 @@
   <artifactId>debian-package-builder</artifactId>
   <version>1.2-SNAPSHOT</version>
   <packaging>hpi</packaging>
+  <url>https://wiki.jenkins-ci.org/display/JENKINS/Debian+Package+Builder+Plugin</url>
+  <name>Debian Package Builder</name>name>
+
+  <developers>
+    <developer>
+      <id>pupssman</id>
+      <name>Ivan Kalinin</name>
+      <email>pupssman@yandex-team.ru</email>
+    </developer>
+    <developer>
+      <id>mavlyutov</id>
+      <name>Marat Mavlyutov</name>
+      <email>mavlyutov@yandex-team.ru</email>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/jenkinsci/debian-package-builder-plugin.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/jenkinsci/debian-package-builder-plugin.git</developerConnection>
+    <url>https://github.com/jenkinsci/debian-package-builder-plugin</url>
+  </scm>
 
   <!-- get every artifact through repo.jenkins-ci.org, which proxies all the artifacts that we need -->
   <repositories>
