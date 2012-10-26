@@ -370,7 +370,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	private String determineVersion(Runner runner, String remoteDebian) throws DebianizingException {
-		String changelogOutput = runner.runCommandForOutput("cd ''{0}'' && dpkg-parsechangelog -lchangelog", remoteDebian);
+		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
 
 		String latestVersion = "";
 
