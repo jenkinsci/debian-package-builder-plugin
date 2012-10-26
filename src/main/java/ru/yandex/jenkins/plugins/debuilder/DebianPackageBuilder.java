@@ -388,13 +388,13 @@ public class DebianPackageBuilder extends Builder {
 			throws InterruptedException, DebianizingException, IOException {
 		if (!runner.runCommandForResult("gpg --list-key {0}", getDescriptor().getAccountName())) {
 			FilePath publicKey = workspace.createTextTempFile("public", "key", getDescriptor().getPublicKey());
-			runner.runCommand("gpg --import {0}", publicKey.getRemote());
+			runner.runCommand("gpg --import ''{0}''", publicKey.getRemote());
 			publicKey.delete();
 		}
 
 		if (!runner.runCommandForResult("gpg --list-secret-key {0}", getDescriptor().getAccountName())) {
 			FilePath privateKey = workspace.createTextTempFile("private", "key", getDescriptor().getPrivateKey());
-			runner.runCommand("gpg --import {0}", privateKey.getRemote());
+			runner.runCommand("gpg --import ''{0}''", privateKey.getRemote());
 			privateKey.delete();
 		}
 	}
