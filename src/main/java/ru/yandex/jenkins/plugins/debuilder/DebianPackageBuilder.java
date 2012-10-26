@@ -99,8 +99,8 @@ public class DebianPackageBuilder extends Builder {
 				writeChangelog(build, listener, remoteDebian, runner, changes);
 			}
 
-			runner.runCommand("cd {0} && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
-			runner.runCommand("cd {0} && debuild --check-dirname-level 0 -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
+			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
 
 			archiveArtifacts(build, runner, latestVersion);
 
@@ -370,7 +370,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	private String determineVersion(Runner runner, String remoteDebian) throws DebianizingException {
-		String changelogOutput = runner.runCommandForOutput("cd {0} && dpkg-parsechangelog -lchangelog", remoteDebian);
+		String changelogOutput = runner.runCommandForOutput("cd ''{0}'' && dpkg-parsechangelog -lchangelog", remoteDebian);
 
 		String latestVersion = "";
 

@@ -1,13 +1,11 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
 import hudson.remoting.Callable;
-import hudson.scm.SubversionSCM;
 import hudson.scm.SvnClientManager;
+import hudson.scm.SubversionSCM;
 
 import java.io.File;
 import java.io.Serializable;
-
-import javax.naming.ldap.ManageReferralControl;
 
 import org.tmatesoft.svn.core.SVNCommitInfo;
 import org.tmatesoft.svn.core.SVNDepth;

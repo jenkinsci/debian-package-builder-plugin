@@ -2,7 +2,6 @@ package ru.yandex.jenkins.plugins.debuilder;
 
 import hudson.Launcher;
 import hudson.model.BuildListener;
-import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.remoting.VirtualChannel;
 import hudson.tasks.Shell;

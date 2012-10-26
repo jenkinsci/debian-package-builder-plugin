@@ -30,9 +30,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import jedi.functional.Filter;
-import jedi.functional.FunctionalPrimitives;
-import jedi.functional.Functor;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
@@ -129,7 +126,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
-		runner.runCommand("sudo mv {0} {1}", duploadConf.getRemote(), filePath);
+		runner.runCommand("sudo mv ''{0}'' {1}", duploadConf.getRemote(), filePath);
 	}
 
 	@Override
@@ -169,7 +166,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 					continue;
 				}
 
-				if (!runner.runCommandForResult("cd {0} && debrelease", build.getWorkspace().child(moduleLocation).getRemote())) {
+				if (!runner.runCommandForResult("cd ''{0}'' && debrelease", build.getWorkspace().child(moduleLocation).getRemote())) {
 					throw new DebianizingException("Debrelease failed");
 				}
 
@@ -268,6 +265,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			return super.configure(req,formData);
 		}
 
+		@SuppressWarnings("rawtypes")
 		@Override
 		public boolean isApplicable(Class<? extends AbstractProject> jobType) {
 			return true;
