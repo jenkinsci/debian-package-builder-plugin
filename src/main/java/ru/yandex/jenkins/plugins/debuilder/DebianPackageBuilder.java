@@ -61,12 +61,15 @@ public class DebianPackageBuilder extends Builder {
 	private final String pathToDebian;
 	private final boolean generateChangelog;
 	private final boolean buildEvenWhenThereAreNoChanges;
+	private final boolean installBuildDeps;
+
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges, Boolean installBuildDeps) {
 		this.pathToDebian = pathToDebian;
 		this.generateChangelog = generateChangelog;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
+		this.installBuildDeps = installBuildDeps;
 	}
 
 
@@ -80,8 +83,10 @@ public class DebianPackageBuilder extends Builder {
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
 		try {
-			runner.runCommand("sudo apt-get update");
-			runner.runCommand("sudo apt-get install aptitude pbuilder");
+			if (installBuildDeps) {
+				runner.runCommand("sudo apt-get update");
+				runner.runCommand("sudo apt-get install aptitude pbuilder");
+			}
 
 			importKeys(workspace, runner);
 
@@ -99,7 +104,9 @@ public class DebianPackageBuilder extends Builder {
 				writeChangelog(build, listener, remoteDebian, runner, changes);
 			}
 
-			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			if (installBuildDeps) {
+				runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			}
 			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
 
 			archiveArtifacts(build, runner, latestVersion);

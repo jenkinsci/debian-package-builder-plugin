@@ -2,6 +2,9 @@
   <f:entry title="Path to 'debian' catalog" field="pathToDebian">
     <f:textbox />
   </f:entry>
+  <f:entry title="Install/update build dependencies (build will fail if 'jeninks' user is not listed in sudoers)" field="installBuildDeps">
+      <f:checkbox />
+  </f:entry>
   <f:optionalBlock name="generateChangelog" title="Generate changelog?" checked="${instance.generateChangelog}" inline="true">
     <f:entry title="Build automatically even if there are no changes in the package" field="buildEvenWhenThereAreNoChanges">
       <f:checkbox />
