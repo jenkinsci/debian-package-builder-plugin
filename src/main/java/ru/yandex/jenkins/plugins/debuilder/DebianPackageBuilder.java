@@ -130,7 +130,10 @@ public class DebianPackageBuilder extends Builder {
 	@SuppressWarnings("rawtypes")
 	private void archiveArtifacts(AbstractBuild build, Runner runner, String latestVersion) throws IOException, InterruptedException {
 		FilePath path = build.getWorkspace().child(pathToDebian).child("..");
-		String mask = "*" + latestVersion + "*.deb";
+		String mask = "*" + latestVersion + "_*.deb";
+		mask += ",*_" + latestVersion + "_*.changes";
+		mask += ",*_" + latestVersion + ".dsc";
+		mask += ",*_" + latestVersion + ".tar.gz";
 		for (FilePath file:path.list(mask)) {
 			runner.announce("Archiving file <{0}> as a build artifact", file.getName());
 		}
