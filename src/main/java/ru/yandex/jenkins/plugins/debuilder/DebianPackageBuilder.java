@@ -361,12 +361,12 @@ public class DebianPackageBuilder extends Builder {
 
 	private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --distributor debian --append ''{3}''", getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --vendor debian --append ''{3}''", getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
 	}
 
 	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message) throws InterruptedException, DebianizingException {
 		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --distributor debian --newVersion {3} ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --vendor debian --newVersion {3} ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
 	}
 
 	private String determineVersion(Runner runner, String remoteDebian) throws DebianizingException {
