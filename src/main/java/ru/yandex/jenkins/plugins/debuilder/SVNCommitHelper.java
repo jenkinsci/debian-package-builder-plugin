@@ -6,6 +6,7 @@ import hudson.scm.SubversionSCM;
 
 import java.io.File;
 import java.io.Serializable;
+import java.text.MessageFormat;
 
 import org.tmatesoft.svn.core.SVNCommitInfo;
 import org.tmatesoft.svn.core.SVNDepth;
@@ -33,7 +34,12 @@ public class SVNCommitHelper implements Serializable , Callable<String, Debianiz
 			SVNCommitPacket changeset = clientManager.getCommitClient().doCollectCommitItems(new File[] {new File(path)}, false, true, SVNDepth.INFINITY, null);
 			if (changeset != SVNCommitPacket.EMPTY) {
 				SVNCommitInfo commitInfo = clientManager.getCommitClient().doCommit(changeset, false, commitMessage);
-				return Long.toString(commitInfo.getNewRevision());
+
+				if (commitInfo.getErrorMessage() != null) {
+					throw new DebianizingException(MessageFormat.format("Error while commiting <{0}>: {1}", path, commitInfo.getErrorMessage().toString()));
+				} else {
+					return Long.toString(commitInfo.getNewRevision());
+				}
 			} else {
 				throw new DebianizingException("There was nothing to commit.");
 			}
