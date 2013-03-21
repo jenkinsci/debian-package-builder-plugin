@@ -7,6 +7,7 @@ import hudson.Launcher;
 import hudson.Util;
 import hudson.model.BuildListener;
 import hudson.model.Environment;
+import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.model.Cause;
 import hudson.model.Cause.UserIdCause;
@@ -169,7 +170,7 @@ public class DebianPackageBuilder extends Builder {
 			runner.announce("SCM in use is not Subversion (but <{0}> instead), defaulting to changes since last build", scm.getClass().getName());
 			changes = getChangesSinceLastBuild(runner, build);
 		} else {
-			helper.setRevision(getSVNRevision(build, (SubversionSCM) scm, runner, remoteDebian));
+			helper.setRevision(getSVNRevision(build, (SubversionSCM) scm, runner, remoteDebian, listener));
 			if ("".equals(oldRevision)) {
 				runner.announce("No last revision known, using changes since last successful build to populate debian/changelog");
 				changes = getChangesSinceLastBuild(runner, build);
@@ -246,10 +247,11 @@ public class DebianPackageBuilder extends Builder {
 
 	}
 
-	private String getSVNRevision(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner, String remoteDebian) throws DebianizingException {
+	private String getSVNRevision(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner, String remoteDebian, TaskListener listener) throws DebianizingException {
 		ModuleLocation location = findOurLocation(build, scm, runner, remoteDebian);
 		try {
 			Map<String, Long> revisionsForBuild = SubversionHack.getRevisionsForBuild(scm, build);
+
 			return Long.toString(revisionsForBuild.get(location.getSVNURL().toString()));
 		} catch (IOException e) {
 			throw new DebianizingException("IOException: " + e.getMessage(), e);
@@ -268,14 +270,16 @@ public class DebianPackageBuilder extends Builder {
 		for (ModuleLocation location: scm.getLocations()) {
 			String moduleDir;
 			try {
-				moduleDir = location.getExpandedLocation(build.getEnvironment(runner.getListener())).getLocalDir();
+				ModuleLocation expandedLocation = location.getExpandedLocation(build.getEnvironment(runner.getListener()));
+				moduleDir = expandedLocation.getLocalDir();
+
+				if (remoteDebian.startsWith(build.getWorkspace().child(moduleDir).getRemote())) {
+					return expandedLocation;
+				}
 			} catch (IOException e) {
 				throw new DebianizingException("IOException: " + e.getMessage(), e);
 			} catch (InterruptedException e) {
 				throw new DebianizingException("InterruptedException: " + e.getMessage(), e);
-			}
-			if (remoteDebian.startsWith(build.getWorkspace().child(moduleDir).getRemote())) {
-				return location;
 			}
 		}
 
