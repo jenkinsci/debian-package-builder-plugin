@@ -10,6 +10,7 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Descriptor;
 import hudson.model.Project;
+import hudson.plugins.git.GitSCM;
 import hudson.scm.SCM;
 import hudson.scm.SubversionSCM;
 import hudson.tasks.BuildStepDescriptor;
@@ -34,6 +35,9 @@ import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.lang3.text.StrSubstitutor;
+import org.eclipse.jgit.lib.PersonIdent;
+import org.jenkinsci.plugins.gitclient.Git;
+import org.jenkinsci.plugins.gitclient.GitClient;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -148,7 +152,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 		try {
 			runner.runCommand("sudo apt-get install dupload devscripts");
-			generateDuploadConf(duploadConfPath, build, runner);
+			//generateDuploadConf(duploadConfPath, build, runner);
 
 			List<String> builtModules = new ArrayList<String>();
 
@@ -166,9 +170,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 					continue;
 				}
 
-				if (!runner.runCommandForResult("cd ''{0}'' && debrelease", build.getWorkspace().child(moduleLocation).getRemote())) {
-					throw new DebianizingException("Debrelease failed");
-				}
+//				if (!runner.runCommandForResult("cd ''{0}'' && debrelease", build.getWorkspace().child(moduleLocation).getRemote())) {
+//					throw new DebianizingException("Debrelease failed");
+//				}
 
 				wereBuilds = true;
 			}
@@ -190,10 +194,23 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	private void commitChanges(AbstractBuild<?, ?> build, Runner runner) throws DebianizingException {
 		SCM scm = build.getProject().getScm();
 
-		if (!(scm instanceof SubversionSCM)) {
-			throw new DebianizingException("SCM used is not a subversion SCM but " + scm.getType());
-		} else {
+		if (scm instanceof SubversionSCM) {
 			commitToSVN(build, runner, (SubversionSCM)scm);
+		} else if (scm instanceof GitSCM) {
+			commitToGitAndPush(build, runner, (GitSCM)scm);
+		} else {
+			throw new DebianizingException("SCM used is not a know one but " + scm.getType());
+		}
+	}
+
+	private void commitToGitAndPush(AbstractBuild<?, ?> build, Runner runner, GitSCM scm) throws DebianizingException {
+		try {
+			GitCommitHelper helper = new GitCommitHelper(build.getEnvironment(runner.getListener()));
+			runner.announce("Commited to git: {0}", runner.getChannel().call(helper));
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 	}
 
