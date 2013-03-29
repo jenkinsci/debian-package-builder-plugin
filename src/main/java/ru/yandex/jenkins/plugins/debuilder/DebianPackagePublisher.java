@@ -152,7 +152,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 		try {
 			runner.runCommand("sudo apt-get install dupload devscripts");
-			//generateDuploadConf(duploadConfPath, build, runner);
+			generateDuploadConf(duploadConfPath, build, runner);
 
 			List<String> builtModules = new ArrayList<String>();
 
@@ -170,9 +170,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 					continue;
 				}
 
-//				if (!runner.runCommandForResult("cd ''{0}'' && debrelease", build.getWorkspace().child(moduleLocation).getRemote())) {
-//					throw new DebianizingException("Debrelease failed");
-//				}
+				if (!runner.runCommandForResult("cd ''{0}'' && debrelease", build.getWorkspace().child(moduleLocation).getRemote())) {
+					throw new DebianizingException("Debrelease failed");
+				}
 
 				wereBuilds = true;
 			}
