@@ -1,7 +1,9 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
+import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.model.BuildBadgeAction;
 import hudson.model.BuildListener;
@@ -11,6 +13,7 @@ import hudson.model.AbstractProject;
 import hudson.model.Descriptor;
 import hudson.model.Project;
 import hudson.plugins.git.GitSCM;
+import hudson.remoting.VirtualChannel;
 import hudson.scm.SCM;
 import hudson.scm.SubversionSCM;
 import hudson.tasks.BuildStepDescriptor;
@@ -35,6 +38,9 @@ import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.lang3.text.StrSubstitutor;
+import org.eclipse.jgit.lib.PersonIdent;
+import org.jenkinsci.plugins.gitclient.Git;
+import org.jenkinsci.plugins.gitclient.GitClient;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -200,10 +206,40 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 	}
 
-	private void commitToGitAndPush(AbstractBuild<?, ?> build, Runner runner, GitSCM scm) throws DebianizingException {
+	private void commitToGitAndPush(final AbstractBuild<?, ?> build, final Runner runner, GitSCM scm) throws DebianizingException {
 		try {
-			GitCommitHelper helper = new GitCommitHelper(build.getEnvironment(runner.getListener()));
-			runner.announce("Commited to git: {0}", runner.getChannel().call(helper));
+			//GitCommitHelper helper = new GitCommitHelper(build.getEnvironment(runner.getListener()));
+			//runner.announce("Commited to git: {0}", runner.getChannel().call(helper));
+
+			final EnvVars environment = build.getEnvironment(runner.getListener());
+			final BuildListener listener = runner.getListener();
+			final String gitExe = scm.getGitExe(build.getBuiltOn(), listener);
+			
+			build.getWorkspace().act(new FileCallable<Boolean>() {
+
+						private static final long serialVersionUID = 1L;
+
+						public Boolean invoke(File localWorkspace,
+								VirtualChannel channel) throws IOException,
+								InterruptedException {
+
+							
+							GitClient git = Git.with(listener, environment)
+									.in(localWorkspace).using(gitExe)
+									.getClient();
+
+							if (git.hasGitRepo()) {
+								PersonIdent person = new PersonIdent("ololo", "foo@somewhere.com");
+
+								git.add("debian/changelog");
+								git.commit("test", person, person);
+								
+								return true;
+							} else {
+								return false;
+							}
+						}
+					});
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (InterruptedException e) {

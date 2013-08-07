@@ -18,7 +18,7 @@ public class GitCommitHelper implements Callable<String, DebianizingException>{
 
 	@Override
 	public String call() throws DebianizingException {
-		GitClient client = Git.with(null, this.environment).getClient();
+		GitClient client = Git.with(null, this.environment).using("my_git").getClient();
 		if (!client.hasGitRepo()) {
 			throw new DebianizingException("Workspace contains no git repository");
 		}
@@ -26,7 +26,6 @@ public class GitCommitHelper implements Callable<String, DebianizingException>{
 
 		client.add("debian/**");
 		client.commit("test", person, person);
-		client.push("origin", "HEAD:master");
 
 		return "OK";
 	}
