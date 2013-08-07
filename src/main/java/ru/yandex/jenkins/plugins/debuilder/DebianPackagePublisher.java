@@ -214,6 +214,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			final EnvVars environment = build.getEnvironment(runner.getListener());
 			final BuildListener listener = runner.getListener();
 			final String gitExe = scm.getGitExe(build.getBuiltOn(), listener);
+			ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.DescriptorImpl impl = (ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class);
+			
+			final String accountName = impl.getAccountName();
 			
 			build.getWorkspace().act(new FileCallable<Boolean>() {
 
@@ -229,7 +232,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 									.getClient();
 
 							if (git.hasGitRepo()) {
-								PersonIdent person = new PersonIdent("ololo", "foo@somewhere.com");
+								
+								PersonIdent person = new PersonIdent("Jenkins", accountName);
 
 								git.add("debian/changelog");
 								git.commit("test", person, person);
