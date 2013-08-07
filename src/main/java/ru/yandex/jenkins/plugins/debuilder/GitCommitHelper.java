@@ -1,13 +1,11 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
-import java.io.IOException;
+import hudson.EnvVars;
+import hudson.remoting.Callable;
 
 import org.eclipse.jgit.lib.PersonIdent;
 import org.jenkinsci.plugins.gitclient.Git;
 import org.jenkinsci.plugins.gitclient.GitClient;
-
-import hudson.EnvVars;
-import hudson.remoting.Callable;
 
 public class GitCommitHelper implements Callable<String, DebianizingException>{
 
@@ -28,7 +26,7 @@ public class GitCommitHelper implements Callable<String, DebianizingException>{
 
 		client.add("debian/**");
 		client.commit("test", person, person);
-		client.push("origin", null);
+		client.push("origin", "HEAD:master");
 
 		return "OK";
 	}
