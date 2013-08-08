@@ -10,6 +10,7 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Descriptor;
 import hudson.model.Project;
+import hudson.plugins.git.GitSCM;
 import hudson.scm.SCM;
 import hudson.scm.SubversionSCM;
 import hudson.tasks.BuildStepDescriptor;
@@ -190,10 +191,28 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	private void commitChanges(AbstractBuild<?, ?> build, Runner runner) throws DebianizingException {
 		SCM scm = build.getProject().getScm();
 
-		if (!(scm instanceof SubversionSCM)) {
-			throw new DebianizingException("SCM used is not a subversion SCM but " + scm.getType());
-		} else {
+		if (scm instanceof SubversionSCM) {
 			commitToSVN(build, runner, (SubversionSCM)scm);
+		} else if (scm instanceof GitSCM) {
+			commitToGitAndPush(build, runner, (GitSCM)scm);
+		} else {
+			throw new DebianizingException("SCM used is not a know one but " + scm.getType());
+		}
+	}
+
+	private void commitToGitAndPush(final AbstractBuild<?, ?> build, final Runner runner, GitSCM scm) throws DebianizingException {
+		try {
+			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, getCommitMessage());
+
+			if (build.getWorkspace().act(helper)) {
+				runner.announce("Successfully commited to git");
+			} else {
+				throw new DebianizingException("Failed to commit to git");
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 	}
 
