@@ -161,13 +161,13 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 			boolean wereBuilds = false;
 
-			for (String moduleLocation: DebianPackageBuilder.getAllModules(build)) {
-				if (! builtModules.contains(moduleLocation)) {
-					runner.announce("Module {0} was not built - not releasing", moduleLocation);
+			for (String module: DebianPackageBuilder.getRemoteModules(build)) {
+				if (! builtModules.contains(new FilePath(build.getWorkspace().getChannel(), module).child("debian").getRemote())) {
+					runner.announce("Module in {0} was not built - not releasing", module);
 					continue;
 				}
 
-				if (!runner.runCommandForResult("cd ''{0}'' && debrelease", build.getWorkspace().child(moduleLocation).getRemote())) {
+				if (!runner.runCommandForResult("cd ''{0}'' && debrelease", module)) {
 					throw new DebianizingException("Debrelease failed");
 				}
 
@@ -202,7 +202,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 	private void commitToGitAndPush(final AbstractBuild<?, ?> build, final Runner runner, GitSCM scm) throws DebianizingException {
 		try {
-			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, getCommitMessage());
+			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, getCommitMessage(), DebianPackageBuilder.getRemoteModules(build));
 
 			if (build.getWorkspace().act(helper)) {
 				runner.announce("Successfully commited to git");
@@ -221,8 +221,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		ISVNAuthenticationProvider authenticationProvider = descriptor.createAuthenticationProvider(build.getProject());
 
 		try {
-			for (String module: DebianPackageBuilder.getAllModules(build)) {
-				SVNCommitHelper helper = new SVNCommitHelper(authenticationProvider, build.getWorkspace().child(module).getRemote(), getCommitMessage());
+			for (String module: DebianPackageBuilder.getRemoteModules(build)) {
+				SVNCommitHelper helper = new SVNCommitHelper(authenticationProvider, module, getCommitMessage());
 				runner.announce("Commited revision <{0}> of <{2}> with message <{1}>", runner.getChannel().call(helper), getCommitMessage(), module);
 			}
 		} catch (IOException e) {

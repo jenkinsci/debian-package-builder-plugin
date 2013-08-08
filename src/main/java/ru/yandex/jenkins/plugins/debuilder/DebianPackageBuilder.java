@@ -105,7 +105,7 @@ public class DebianPackageBuilder extends Builder {
 
 			archiveArtifacts(build, runner, latestVersion);
 
-			build.addAction(new DebianBadge(latestVersion, pathToDebian));
+			build.addAction(new DebianBadge(latestVersion, remoteDebian));
 			build.getEnvironments().add(Environment.create(new EnvVars(DEBIAN_PACKAGE_VERSION, latestVersion)));
 		} catch (InterruptedException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
@@ -131,7 +131,7 @@ public class DebianPackageBuilder extends Builder {
 		path.copyRecursiveTo(mask, new FilePath(build.getArtifactsDir()));
 	}
 
-	private String getRemoteDebian(FilePath workspace) {
+	public String getRemoteDebian(FilePath workspace) {
 		if (pathToDebian.endsWith("debian") || pathToDebian.endsWith("debian/")) {
 			return workspace.child(pathToDebian).getRemote();
 		} else {
@@ -483,26 +483,40 @@ public class DebianPackageBuilder extends Builder {
 
 	}
 
+
 	/**
 	 * @param build
-	 * @return all the module locations declared in given build by {@link DebianPackageBuilder}s or "." if there are none
+	 * @return all the paths to remote module roots declared in given build by {@link DebianPackageBuilder}s
+	 */
+	public static Collection<String> getRemoteModules(AbstractBuild<?, ?> build) {
+		ArrayList<String> result = new ArrayList<String>();
+
+		for (DebianPackageBuilder builder: getDPBuilders(build)) {
+			result.add(new FilePath(build.getWorkspace().getChannel(), builder.getRemoteDebian(build.getWorkspace())).child("..").getRemote());
+		}
+		
+		return result;
+	}
+	
+	/**
+	 * @param build
+	 * @return all the {@link DebianPackageBuilder}s participating in this build
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public static Collection<String> getAllModules(AbstractBuild<?, ?> build) {
-		ArrayList<String> result = new ArrayList<String>();
+	public static Collection<DebianPackageBuilder> getDPBuilders(AbstractBuild<?, ?> build) {
+		ArrayList<DebianPackageBuilder> result = new ArrayList<DebianPackageBuilder>();
 
 		if (build.getProject() instanceof Project) {
 			DescribableList<Builder, Descriptor<Builder>> builders = ((Project)build.getProject()).getBuildersList();
 			for (Builder builder: builders) {
 				if (builder instanceof DebianPackageBuilder) {
-					result.add(((DebianPackageBuilder) builder).pathToDebian);
+					result.add((DebianPackageBuilder) builder);
 				}
 			}
-		} else {
-			result.add(".");
 		}
+		
 		return result;
-	}
+	}	
 
 	public boolean isBuildEvenWhenThereAreNoChanges() {
 		return buildEvenWhenThereAreNoChanges;

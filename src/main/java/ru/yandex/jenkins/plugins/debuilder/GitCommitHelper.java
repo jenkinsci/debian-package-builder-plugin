@@ -9,6 +9,7 @@ import hudson.remoting.VirtualChannel;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 
 import jenkins.model.Jenkins;
 
@@ -34,9 +35,11 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 	private final String gitExe;
 	private final String accountName;
 	private final String commitMessage;
+	private Collection<String> modules;
 
-	public GitCommitHelper(AbstractBuild<?, ?> build, GitSCM scm, Runner runner, String commitMessage) throws IOException, InterruptedException {
+	public GitCommitHelper(AbstractBuild<?, ?> build, GitSCM scm, Runner runner, String commitMessage, Collection<String> modules) throws IOException, InterruptedException {
 		this.commitMessage = commitMessage;
+		this.modules = modules;
 		this.environment = build.getEnvironment(runner.getListener());
 		this.listener = runner.getListener();
 		this.gitExe = scm.getGitExe(build.getBuiltOn(), listener);
@@ -53,8 +56,9 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 		if (git.hasGitRepo()) {
 			
 			PersonIdent person = new PersonIdent("Jenkins", accountName);
-
-			git.add("debian/changelog");
+			for (String module: modules) {
+				git.add(new File(module, "debian/changelog").getCanonicalPath());
+			}
 			git.commit(commitMessage, person, person);
 			
 			return true;
