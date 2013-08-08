@@ -33,8 +33,10 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 	private final TaskListener listener;
 	private final String gitExe;
 	private final String accountName;
+	private final String commitMessage;
 
-	public GitCommitHelper(AbstractBuild<?, ?> build, GitSCM scm, Runner runner) throws IOException, InterruptedException {
+	public GitCommitHelper(AbstractBuild<?, ?> build, GitSCM scm, Runner runner, String commitMessage) throws IOException, InterruptedException {
+		this.commitMessage = commitMessage;
 		this.environment = build.getEnvironment(runner.getListener());
 		this.listener = runner.getListener();
 		this.gitExe = scm.getGitExe(build.getBuiltOn(), listener);
@@ -53,7 +55,7 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 			PersonIdent person = new PersonIdent("Jenkins", accountName);
 
 			git.add("debian/changelog");
-			git.commit("test", person, person);
+			git.commit(commitMessage, person, person);
 			
 			return true;
 		} else {

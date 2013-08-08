@@ -202,7 +202,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 	private void commitToGitAndPush(final AbstractBuild<?, ?> build, final Runner runner, GitSCM scm) throws DebianizingException {
 		try {
-			GitCommitHelper helper = new GitCommitHelper(build, scm, runner);
+			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, getCommitMessage());
 
 			if (build.getWorkspace().act(helper)) {
 				runner.announce("Successfully commited to git");
