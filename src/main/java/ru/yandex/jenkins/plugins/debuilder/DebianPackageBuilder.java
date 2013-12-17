@@ -54,6 +54,7 @@ import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
 
 public class DebianPackageBuilder extends Builder {
+	public static final String DEBIAN_SOURCE = "DEBIAN_SOURCE";
 	public static final String DEBIAN_PACKAGE_VERSION = "DEBIAN_PACKAGE_VERSION";
 	public static final String ABORT_MESSAGE = "[{0}] Aborting: {1} ";
 	private static final String PREFIX = "debian-package-builder";
@@ -86,6 +87,7 @@ public class DebianPackageBuilder extends Builder {
 
 			importKeys(workspace, runner);
 
+			String source = determineSource(runner, remoteDebian);
 			String latestVersion = determineVersion(runner, remoteDebian);
 
 			if (generateChangelog) {
@@ -106,6 +108,7 @@ public class DebianPackageBuilder extends Builder {
 			archiveArtifacts(build, runner, latestVersion);
 
 			build.addAction(new DebianBadge(latestVersion, remoteDebian));
+			build.getEnvironments().add(Environment.create(new EnvVars(DEBIAN_SOURCE, source)));
 			build.getEnvironments().add(Environment.create(new EnvVars(DEBIAN_PACKAGE_VERSION, latestVersion)));
 		} catch (InterruptedException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
@@ -373,6 +376,20 @@ public class DebianPackageBuilder extends Builder {
 		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --distributor debian --newVersion {3} ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
 	}
 
+	private String determineSource(Runner runner, String remoteDebian) throws DebianizingException {
+		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
+		String source = "";
+
+		for(String row: changelogOutput.split("\n")) {
+			if (row.startsWith("Source:")) {
+				source = row.split(":")[1].trim();
+			}
+		}
+
+		runner.announce("Determined source to be {0}", source);
+		return source;
+	}
+
 	private String determineVersion(Runner runner, String remoteDebian) throws DebianizingException {
 		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
 
@@ -494,10 +511,10 @@ public class DebianPackageBuilder extends Builder {
 		for (DebianPackageBuilder builder: getDPBuilders(build)) {
 			result.add(new FilePath(build.getWorkspace().getChannel(), builder.getRemoteDebian(build.getWorkspace())).child("..").getRemote());
 		}
-		
+
 		return result;
 	}
-	
+
 	/**
 	 * @param build
 	 * @return all the {@link DebianPackageBuilder}s participating in this build
@@ -514,9 +531,9 @@ public class DebianPackageBuilder extends Builder {
 				}
 			}
 		}
-		
+
 		return result;
-	}	
+	}
 
 	public boolean isBuildEvenWhenThereAreNoChanges() {
 		return buildEvenWhenThereAreNoChanges;
