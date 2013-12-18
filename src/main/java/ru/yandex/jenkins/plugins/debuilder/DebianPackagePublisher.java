@@ -1,5 +1,6 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -148,6 +149,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		String duploadConfPath = "/etc/dupload.conf";
 
 		try {
+			EnvVars environment = build.getEnvironment(listener);
 			runner.runCommand("sudo apt-get install dupload devscripts");
 			generateDuploadConf(duploadConfPath, build, runner);
 
@@ -175,7 +177,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			}
 
 			if (wereBuilds && commitChanges) {
-				commitChanges(build, runner);
+				String expandedCommitMessage = environment.expand(getCommitMessage());
+				commitChanges(build, runner, expandedCommitMessage);
 			}
 		} catch (InterruptedException e) {
 			logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
@@ -188,21 +191,21 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return true;
 	}
 
-	private void commitChanges(AbstractBuild<?, ?> build, Runner runner) throws DebianizingException {
+	private void commitChanges(AbstractBuild<?, ?> build, Runner runner, String commitMessage) throws DebianizingException {
 		SCM scm = build.getProject().getScm();
 
 		if (scm instanceof SubversionSCM) {
-			commitToSVN(build, runner, (SubversionSCM)scm);
+			commitToSVN(build, runner, (SubversionSCM)scm, commitMessage);
 		} else if (scm instanceof GitSCM) {
-			commitToGitAndPush(build, runner, (GitSCM)scm);
+			commitToGitAndPush(build, runner, (GitSCM)scm, commitMessage);
 		} else {
 			throw new DebianizingException("SCM used is not a know one but " + scm.getType());
 		}
 	}
 
-	private void commitToGitAndPush(final AbstractBuild<?, ?> build, final Runner runner, GitSCM scm) throws DebianizingException {
+	private void commitToGitAndPush(final AbstractBuild<?, ?> build, final Runner runner, GitSCM scm, String commitMessage) throws DebianizingException {
 		try {
-			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, getCommitMessage(), DebianPackageBuilder.getRemoteModules(build));
+			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, commitMessage, DebianPackageBuilder.getRemoteModules(build));
 
 			if (build.getWorkspace().act(helper)) {
 				runner.announce("Successfully commited to git");
@@ -216,14 +219,14 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 	}
 
-	private void commitToSVN(final AbstractBuild<?, ?> build, final Runner runner, SubversionSCM svn) throws DebianizingException {
+	private void commitToSVN(final AbstractBuild<?, ?> build, final Runner runner, SubversionSCM svn, String commitMessage) throws DebianizingException {
 		hudson.scm.SubversionSCM.DescriptorImpl descriptor = (hudson.scm.SubversionSCM.DescriptorImpl) Jenkins.getInstance().getDescriptor(hudson.scm.SubversionSCM.class);
 		ISVNAuthenticationProvider authenticationProvider = descriptor.createAuthenticationProvider(build.getProject());
 
 		try {
 			for (String module: DebianPackageBuilder.getRemoteModules(build)) {
-				SVNCommitHelper helper = new SVNCommitHelper(authenticationProvider, module, getCommitMessage());
-				runner.announce("Commited revision <{0}> of <{2}> with message <{1}>", runner.getChannel().call(helper), getCommitMessage(), module);
+				SVNCommitHelper helper = new SVNCommitHelper(authenticationProvider, module, commitMessage);
+				runner.announce("Commited revision <{0}> of <{2}> with message <{1}>", runner.getChannel().call(helper), commitMessage, module);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
