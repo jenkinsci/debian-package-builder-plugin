@@ -29,7 +29,13 @@ import hudson.util.VariableResolver;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.text.MessageFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import jedi.functional.FunctionalPrimitives;
 import jedi.functional.Functor;
@@ -107,9 +113,7 @@ public class DebianPackageBuilder extends Builder {
 			archiveArtifacts(build, runner, latestVersion);
 
 			build.addAction(new DebianBadge(latestVersion, remoteDebian));
-			EnvVars envVars = new EnvVars();
-			envVars.put(DEBIAN_SOURCE_PACKAGE, source);
-			envVars.put(DEBIAN_PACKAGE_VERSION, latestVersion);
+			EnvVars envVars = new EnvVars(DEBIAN_SOURCE_PACKAGE, source, DEBIAN_PACKAGE_VERSION, latestVersion);
 			build.getEnvironments().add(Environment.create(envVars));
 		} catch (InterruptedException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
@@ -378,7 +382,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	/**
-	 * FIXME Doesn't parse Changes
+	 * FIXME Doesn't work with multi-line entries
 	 */
 	private Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
 		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
