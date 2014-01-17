@@ -31,10 +31,13 @@ import java.io.PrintStream;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import jedi.functional.FunctionalPrimitives;
 import jedi.functional.Functor;
@@ -54,6 +57,7 @@ import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
 
 public class DebianPackageBuilder extends Builder {
+	public static final String DEBIAN_SOURCE_PACKAGE = "DEBIAN_SOURCE_PACKAGE";
 	public static final String DEBIAN_PACKAGE_VERSION = "DEBIAN_PACKAGE_VERSION";
 	public static final String ABORT_MESSAGE = "[{0}] Aborting: {1} ";
 	private static final String PREFIX = "debian-package-builder";
@@ -86,7 +90,11 @@ public class DebianPackageBuilder extends Builder {
 
 			importKeys(workspace, runner);
 
-			String latestVersion = determineVersion(runner, remoteDebian);
+			Map<String, String> changelog = parseChangelog(runner, remoteDebian);
+
+			String source = changelog.get("Source");
+			String latestVersion = changelog.get("Version");
+			runner.announce("Determined latest version to be {0}", latestVersion);
 
 			if (generateChangelog) {
 				Pair<VersionHelper, List<Change>> changes = generateChangelog(latestVersion, runner, build, launcher, listener, remoteDebian);
@@ -106,7 +114,8 @@ public class DebianPackageBuilder extends Builder {
 			archiveArtifacts(build, runner, latestVersion);
 
 			build.addAction(new DebianBadge(latestVersion, remoteDebian));
-			build.getEnvironments().add(Environment.create(new EnvVars(DEBIAN_PACKAGE_VERSION, latestVersion)));
+			EnvVars envVars = new EnvVars(DEBIAN_SOURCE_PACKAGE, source, DEBIAN_PACKAGE_VERSION, latestVersion);
+			build.getEnvironments().add(Environment.create(envVars));
 		} catch (InterruptedException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
 			return false;
@@ -373,19 +382,22 @@ public class DebianPackageBuilder extends Builder {
 		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --distributor debian --newVersion {3} ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
 	}
 
-	private String determineVersion(Runner runner, String remoteDebian) throws DebianizingException {
+	/**
+	 * FIXME Doesn't work with multi-line entries
+	 */
+	private Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
 		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
-
-		String latestVersion = "";
+		Map<String, String> changelog = new HashMap<String, String>();
+		Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
 
 		for(String row: changelogOutput.split("\n")) {
-			if (row.startsWith("Version:")) {
-				latestVersion = row.split(":")[1].trim();
+			Matcher matcher = changelogFormat.matcher(row);
+			if (matcher.matches()) {
+				 changelog.put(matcher.group(1), matcher.group(2));
 			}
 		}
 
-		runner.announce("Determined latest version to be {0}", latestVersion);
-		return latestVersion;
+		return changelog;
 	}
 
 	private void importKeys(FilePath workspace, Runner runner)
@@ -494,10 +506,10 @@ public class DebianPackageBuilder extends Builder {
 		for (DebianPackageBuilder builder: getDPBuilders(build)) {
 			result.add(new FilePath(build.getWorkspace().getChannel(), builder.getRemoteDebian(build.getWorkspace())).child("..").getRemote());
 		}
-		
+
 		return result;
 	}
-	
+
 	/**
 	 * @param build
 	 * @return all the {@link DebianPackageBuilder}s participating in this build
@@ -514,9 +526,9 @@ public class DebianPackageBuilder extends Builder {
 				}
 			}
 		}
-		
+
 		return result;
-	}	
+	}
 
 	public boolean isBuildEvenWhenThereAreNoChanges() {
 		return buildEvenWhenThereAreNoChanges;
