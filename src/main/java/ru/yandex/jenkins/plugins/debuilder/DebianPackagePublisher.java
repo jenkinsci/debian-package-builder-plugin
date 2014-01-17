@@ -149,7 +149,6 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		String duploadConfPath = "/etc/dupload.conf";
 
 		try {
-			EnvVars environment = build.getEnvironment(listener);
 			runner.runCommand("sudo apt-get install dupload devscripts");
 			generateDuploadConf(duploadConfPath, build, runner);
 
@@ -177,7 +176,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			}
 
 			if (wereBuilds && commitChanges) {
-				String expandedCommitMessage = environment.expand(getCommitMessage());
+				String expandedCommitMessage = expandCommitMessage(build, listener);
 				commitChanges(build, runner, expandedCommitMessage);
 			}
 		} catch (InterruptedException e) {
@@ -191,7 +190,12 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return true;
 	}
 
-	private void commitChanges(AbstractBuild<?, ?> build, Runner runner, String commitMessage) throws DebianizingException {
+	private String expandCommitMessage(AbstractBuild<?, ?> build, BuildListener listener) throws IOException, InterruptedException {
+		EnvVars env = build.getEnvironment(listener);
+		return env.expand(getCommitMessage());
+	}
+
+	private void commitChanges(AbstractBuild<?, ?> build, Runner runner, String commitMessage) throws DebianizingException, IOException, InterruptedException {
 		SCM scm = build.getProject().getScm();
 
 		if (scm instanceof SubversionSCM) {
