@@ -388,10 +388,10 @@ public class DebianPackageBuilder extends Builder {
 	private Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
 		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
 		Map<String, String> changelog = new HashMap<String, String>();
-        Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
+		Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
 
 		for(String row: changelogOutput.split("\n")) {
-            Matcher matcher = changelogFormat.matcher(row);
+			Matcher matcher = changelogFormat.matcher(row);
 			if (matcher.matches()) {
 				 changelog.put(matcher.group(1), matcher.group(2));
 			}
