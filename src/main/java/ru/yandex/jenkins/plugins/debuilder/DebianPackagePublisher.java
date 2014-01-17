@@ -176,7 +176,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			}
 
 			if (wereBuilds && commitChanges) {
-				String expandedCommitMessage = expandCommitMessage(build, listener);
+				String expandedCommitMessage = getExpandedCommitMessage(build, listener);
 				commitChanges(build, runner, expandedCommitMessage);
 			}
 		} catch (InterruptedException e) {
@@ -190,7 +190,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return true;
 	}
 
-	private String expandCommitMessage(AbstractBuild<?, ?> build, BuildListener listener) throws IOException, InterruptedException {
+	private String getExpandedCommitMessage(AbstractBuild<?, ?> build, BuildListener listener) throws IOException, InterruptedException {
 		EnvVars env = build.getEnvironment(listener);
 		return env.expand(getCommitMessage());
 	}
