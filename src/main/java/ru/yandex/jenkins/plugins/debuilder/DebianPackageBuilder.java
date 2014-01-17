@@ -36,6 +36,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import jedi.functional.FunctionalPrimitives;
 import jedi.functional.Functor;
@@ -91,7 +93,6 @@ public class DebianPackageBuilder extends Builder {
 			Map<String, String> changelog = parseChangelog(runner, remoteDebian);
 
 			String source = changelog.get("Source");
-			runner.announce("Determined source to be {0}", source);
 			String latestVersion = changelog.get("Version");
 			runner.announce("Determined latest version to be {0}", latestVersion);
 
@@ -387,11 +388,12 @@ public class DebianPackageBuilder extends Builder {
 	private Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
 		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
 		Map<String, String> changelog = new HashMap<String, String>();
+        Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
 
 		for(String row: changelogOutput.split("\n")) {
-			if (!row.isEmpty() && row.charAt(0) != ' ') {
-				 String[] entry = row.split(":", 2);
-				 changelog.put(entry[0], entry[1].trim());
+            Matcher matcher = changelogFormat.matcher(row);
+			if (matcher.matches()) {
+				 changelog.put(matcher.group(1), matcher.group(2));
 			}
 		}
 
