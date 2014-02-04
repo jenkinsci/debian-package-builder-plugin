@@ -66,12 +66,15 @@ public class DebianPackageBuilder extends Builder {
 	private final String pathToDebian;
 	private final boolean generateChangelog;
 	private final boolean buildEvenWhenThereAreNoChanges;
+	private final boolean installBuildDeps;
+
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges, Boolean installBuildDeps) {
 		this.pathToDebian = pathToDebian;
 		this.generateChangelog = generateChangelog;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
+		this.installBuildDeps = installBuildDeps;
 	}
 
 
@@ -85,8 +88,10 @@ public class DebianPackageBuilder extends Builder {
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
 		try {
-			runner.runCommand("sudo apt-get update");
-			runner.runCommand("sudo apt-get install aptitude pbuilder");
+			if (installBuildDeps) {
+				runner.runCommand("sudo apt-get update");
+				runner.runCommand("sudo apt-get install aptitude pbuilder");
+			}
 
 			importKeys(workspace, runner);
 
@@ -108,7 +113,9 @@ public class DebianPackageBuilder extends Builder {
 				writeChangelog(build, listener, remoteDebian, runner, changes);
 			}
 
-			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			if (installBuildDeps) {
+				runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			}
 			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
 
 			archiveArtifacts(build, runner, latestVersion);
@@ -133,7 +140,10 @@ public class DebianPackageBuilder extends Builder {
 	@SuppressWarnings("rawtypes")
 	private void archiveArtifacts(AbstractBuild build, Runner runner, String latestVersion) throws IOException, InterruptedException {
 		FilePath path = build.getWorkspace().child(pathToDebian).child("..");
-		String mask = "*" + latestVersion + "*.deb";
+		String mask = "*" + latestVersion + "_*.deb";
+		mask += ",*_" + latestVersion + "_*.changes";
+		mask += ",*_" + latestVersion + ".dsc";
+		mask += ",*_" + latestVersion + ".tar.gz";
 		for (FilePath file:path.list(mask)) {
 			runner.announce("Archiving file <{0}> as a build artifact", file.getName());
 		}
@@ -374,12 +384,12 @@ public class DebianPackageBuilder extends Builder {
 
 	private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --distributor debian --append ''{3}''", getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --vendor debian --append ''{3}''", getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
 	}
 
 	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message) throws InterruptedException, DebianizingException {
 		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --distributor debian --newVersion {3} ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --vendor debian --newVersion {3} ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
 	}
 
 	/**
