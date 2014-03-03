@@ -330,7 +330,7 @@ public class DebianPackageBuilder extends Builder {
 
 		int lastSuccessNumber = lastSuccessfulBuild == null ? 0 : lastSuccessfulBuild.number;
 
-		for (int num = lastSuccessNumber + 1; num < build.number; num ++) {
+		for (int num = lastSuccessNumber + 1; num <= build.number; num ++) {
 			AbstractBuild run = (AbstractBuild) build.getProject().getBuildByNumber(num);
 
 			if (run == null) {
