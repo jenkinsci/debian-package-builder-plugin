@@ -173,19 +173,20 @@ public class DebianPackageBuilder extends Builder {
 		helper.setMinorVersion(helper.getMinorVersion() + 1);
 		String oldRevision = helper.getRevision();
 
+		String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
+
 		List<Change> changes;
 
 		if (! (scm instanceof SubversionSCM)) {
 			runner.announce("SCM in use is not Subversion (but <{0}> instead), defaulting to changes since last build", scm.getClass().getName());
-			changes = getChangesSinceLastBuild(runner, build);
+			changes = getChangesSinceLastBuild(runner, build, ourMessage);
 		} else {
 			helper.setRevision(getSVNRevision(build, (SubversionSCM) scm, runner, remoteDebian, listener));
 			if ("".equals(oldRevision)) {
 				runner.announce("No last revision known, using changes since last successful build to populate debian/changelog");
-				changes = getChangesSinceLastBuild(runner, build);
+				changes = getChangesSinceLastBuild(runner, build, ourMessage);
 			} else {
 				runner.announce("Calculating changes since revision {0}.", oldRevision);
-				String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
 				changes = getChangesFromSubversion(runner, (SubversionSCM) scm, build, remoteDebian, oldRevision, helper.getRevision(), ourMessage);
 			}
 		}
@@ -324,7 +325,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private List<Change> getChangesSinceLastBuild(Runner runner, AbstractBuild build) throws InterruptedException, DebianizingException {
+	private List<Change> getChangesSinceLastBuild(Runner runner, AbstractBuild build, String ourMessage) throws InterruptedException, DebianizingException {
 		List<Change> result = new ArrayList<DebianPackageBuilder.Change>();
 		Run lastSuccessfulBuild = build.getProject().getLastSuccessfulBuild();
 
@@ -340,7 +341,9 @@ public class DebianPackageBuilder extends Builder {
 			ChangeLogSet<? extends Entry> changeSet = run.getChangeSet();
 
 			for (Entry entry : changeSet) {
-				result.add(new Change(entry.getAuthor().getFullName(), entry.getMsg()));
+				if (!entry.getMsg().equals(ourMessage)) {
+					result.add(new Change(entry.getAuthor().getFullName(), entry.getMsg()));
+				}
 			}
 		}
 
