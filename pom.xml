@@ -9,7 +9,7 @@
 
   <groupId>ru.yandex.jenkins.plugins.debuilder</groupId>
   <artifactId>debian-package-builder</artifactId>
-  <version>1.5.6</version>
+  <version>1.5.7-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <url>http://wiki.jenkins-ci.org/display/JENKINS/Debian+Package+Builder+Plugin</url>
   <name>Debian Package Builder</name>
