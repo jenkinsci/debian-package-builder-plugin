@@ -6,12 +6,11 @@ import java.util.List;
 
 import jedi.functional.FunctionalPrimitives;
 
-
 /**
  * Encapsulates version information and helps with manipulation
- *
+ * 
  * @author pupssman
- *
+ * 
  */
 public class VersionHelper {
 	private final String separator;
@@ -52,10 +51,11 @@ public class VersionHelper {
 	private int getMinorEntry() {
 		int lastNumeric = -1;
 
-		for (int i = 0; i < versionElements.size() ; i++) {
+		for (int i = versionElements.size() - 1; i >= 0; i--) {
 			try {
 				Integer.parseInt(versionElements.get(i));
 				lastNumeric = i;
+				break;
 			} catch (NumberFormatException e) {
 				// pass
 			}
@@ -65,7 +65,7 @@ public class VersionHelper {
 	}
 
 	private int getRevisionEntry() {
-		for (int i = 0; i < versionElements.size() ; i++) {
+		for (int i = 0; i < versionElements.size(); i++) {
 			if (versionElements.get(i).startsWith("r")) {
 				return i;
 			}
