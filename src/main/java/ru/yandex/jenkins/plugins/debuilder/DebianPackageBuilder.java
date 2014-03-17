@@ -85,8 +85,8 @@ public class DebianPackageBuilder extends Builder {
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
 		try {
-			runner.runCommand("sudo apt-get update");
-			runner.runCommand("sudo apt-get install aptitude pbuilder");
+			runner.runCommand("sudo apt-get -y update");
+			runner.runCommand("sudo apt-get -y install aptitude pbuilder");
 
 			importKeys(workspace, runner);
 
