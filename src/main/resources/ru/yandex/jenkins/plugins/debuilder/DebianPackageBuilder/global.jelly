@@ -1,19 +1,29 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-  <f:section title="Debian Package Builder">
-    <f:entry title="${%Account of GPG key}" field="accountName" value="${descriptor.accountName}">
-      <f:textbox />
-    </f:entry>
+	<f:section title="Debian Package Builder">
+		<f:entry title="${%Account of GPG key}" field="accountName" value="${descriptor.accountName}">
+			<f:textbox />
+		</f:entry>
 
-    <f:entry title="${%Public GPG key}" field="publicKey" value="${descriptor.publicKey}">
-      <f:textarea />
-    </f:entry>
+		<f:entry title="${%Public GPG key}" field="publicKey" value="${descriptor.publicKey}">
+			<f:textarea />
+		</f:entry>
 
-    <f:entry title="${%Private GPG key}" field="privateKey" value="${descriptor.privateKey}">
-      <f:textarea />
-    </f:entry>
+		<f:entry title="${%Private GPG key}" field="privateKey" value="${descriptor.privateKey}">
+			<f:textarea />
+		</f:entry>
 
-    <f:entry title="${%GPG passphrase}" field="passphrase" value="${descriptor.passphrase}">
-      <f:password />
-    </f:entry>
-  </f:section>
+		<f:entry title="${%GPG passphrase}" field="passphrase" value="${descriptor.passphrase}">
+			<f:password />
+		</f:entry>
+
+		<f:entry title="${%Ignore the dependecies instalation process?}"
+			field="ignoreDeps">
+			<f:checkbox checked="${instance.ignoreDeps}" default="unchecked" />
+		</f:entry>
+
+		<f:entry title="${%Do not install the required tools}" field="dontInstallTools">
+			<f:checkbox checked="${instance.dontInstallTools}"
+				default="unchecked" />
+		</f:entry>
+	</f:section>
 </j:jelly>

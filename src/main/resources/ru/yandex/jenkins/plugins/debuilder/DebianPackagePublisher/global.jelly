@@ -1,5 +1,11 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
   <f:section title="Debian Package Publisher">
+
+		<f:entry title="${%Do not install the required tools}" field="dontInstallTools">
+			<f:checkbox checked="${instance.dontInstallTools}"
+				default="unchecked" />
+		</f:entry>
+
     <f:entry title="${%Repositories}">
     <f:repeatable name="repositories" var="repo" items="${descriptor.repositories}" noAddButton="false">
      <table width="100%">

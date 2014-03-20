@@ -55,7 +55,6 @@ import org.tmatesoft.svn.core.wc.SVNRevision;
 
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
-
 public class DebianPackageBuilder extends Builder {
 	public static final String DEBIAN_SOURCE_PACKAGE = "DEBIAN_SOURCE_PACKAGE";
 	public static final String DEBIAN_PACKAGE_VERSION = "DEBIAN_PACKAGE_VERSION";
@@ -74,7 +73,6 @@ public class DebianPackageBuilder extends Builder {
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
 	}
 
-
 	@Override
 	public boolean perform(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, BuildListener listener) {
 		PrintStream logger = listener.getLogger();
@@ -85,8 +83,10 @@ public class DebianPackageBuilder extends Builder {
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
 		try {
-			runner.runCommand("sudo apt-get update");
-			runner.runCommand("sudo apt-get install aptitude pbuilder");
+			if (!getDescriptor().isDontInstallTools()) {
+				runner.runCommand("sudo apt-get update");
+				runner.runCommand("sudo apt-get install aptitude pbuilder");
+			}
 
 			importKeys(workspace, runner);
 
@@ -108,7 +108,9 @@ public class DebianPackageBuilder extends Builder {
 				writeChangelog(build, listener, remoteDebian, runner, changes);
 			}
 
-			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			if (!getDescriptor().isIgnoreDeps()) {
+				runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			}
 			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
 
 			archiveArtifacts(build, runner, latestVersion);
@@ -134,12 +136,20 @@ public class DebianPackageBuilder extends Builder {
 	private void archiveArtifacts(AbstractBuild build, Runner runner, String latestVersion) throws IOException, InterruptedException {
 		FilePath path = build.getWorkspace().child(pathToDebian).child("..");
 		String mask = "*" + latestVersion + "*.deb";
-		for (FilePath file:path.list(mask)) {
+		for (FilePath file : path.list(mask)) {
 			runner.announce("Archiving file <{0}> as a build artifact", file.getName());
 		}
 		path.copyRecursiveTo(mask, new FilePath(build.getArtifactsDir()));
 	}
 
+	/**
+	 * Return the path to the 'debian' directory, where the control build files
+	 * like changelog and rules are stored.
+	 * 
+	 * @param workspace
+	 *            The root of the build workspace
+	 * @return The absolute path to the 'debian' dir
+	 */
 	public String getRemoteDebian(FilePath workspace) {
 		if (pathToDebian.endsWith("debian") || pathToDebian.endsWith("debian/")) {
 			return workspace.child(pathToDebian).getRemote();
@@ -150,7 +160,7 @@ public class DebianPackageBuilder extends Builder {
 
 	/**
 	 * Parses changelog and updates it with next version and it's changes
-	 *
+	 * 
 	 * @param latestVersion
 	 * @param runner
 	 * @param build
@@ -177,7 +187,7 @@ public class DebianPackageBuilder extends Builder {
 
 		List<Change> changes;
 
-		if (! (scm instanceof SubversionSCM)) {
+		if (!(scm instanceof SubversionSCM)) {
 			runner.announce("SCM in use is not Subversion (but <{0}> instead), defaulting to changes since last build", scm.getClass().getName());
 			changes = getChangesSinceLastBuild(runner, build, ourMessage);
 		} else {
@@ -196,7 +206,7 @@ public class DebianPackageBuilder extends Builder {
 
 	/**
 	 * Writes down changelog contained in <b>changes</b>
-	 *
+	 * 
 	 * @param build
 	 * @param listener
 	 * @param remoteDebian
@@ -207,22 +217,21 @@ public class DebianPackageBuilder extends Builder {
 	 * @throws DebianizingException
 	 */
 	@SuppressWarnings("rawtypes")
-	private void writeChangelog(AbstractBuild build, BuildListener listener, String remoteDebian, Runner runner, Pair<VersionHelper, List<Change>> changes) throws IOException,
-			InterruptedException, DebianizingException {
+	private void writeChangelog(AbstractBuild build, BuildListener listener, String remoteDebian, Runner runner, Pair<VersionHelper, List<Change>> changes) throws IOException, InterruptedException, DebianizingException {
 
 		String versionMessage = getCausedMessage(build);
 
 		String newVersionMessage = Util.replaceMacro(versionMessage, new VariableResolver.ByMap<String>(build.getEnvironment(listener)));
 		startVersion(runner, remoteDebian, changes.getLeft(), newVersionMessage);
 
-		for (Change change: changes.getRight()) {
+		for (Change change : changes.getRight()) {
 			addChange(runner, remoteDebian, change);
 		}
 	}
 
 	@SuppressWarnings("rawtypes")
-	private boolean isTriggeredAutomatically (AbstractBuild build) {
-		for (Object cause: build.getCauses()) {
+	private boolean isTriggeredAutomatically(AbstractBuild build) {
+		for (Object cause : build.getCauses()) {
 			if (cause instanceof UserIdCause) {
 				return false;
 			}
@@ -277,7 +286,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	private ModuleLocation findOurLocation(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner, String remoteDebian) throws DebianizingException {
-		for (ModuleLocation location: scm.getLocations()) {
+		for (ModuleLocation location : scm.getLocations()) {
 			String moduleDir;
 			try {
 				ModuleLocation expandedLocation = location.getExpandedLocation(build.getEnvironment(runner.getListener()));
@@ -331,7 +340,7 @@ public class DebianPackageBuilder extends Builder {
 
 		int lastSuccessNumber = lastSuccessfulBuild == null ? 0 : lastSuccessfulBuild.number;
 
-		for (int num = lastSuccessNumber + 1; num <= build.number; num ++) {
+		for (int num = lastSuccessNumber + 1; num <= build.number; num++) {
 			AbstractBuild run = (AbstractBuild) build.getProject().getBuildByNumber(num);
 
 			if (run == null) {
@@ -352,7 +361,7 @@ public class DebianPackageBuilder extends Builder {
 
 	/**
 	 * Pojo to store change
-	 *
+	 * 
 	 * @author pupssman
 	 */
 	private static final class Change {
@@ -361,11 +370,13 @@ public class DebianPackageBuilder extends Builder {
 
 		public Change(String author, String message) {
 			this.author = author;
-			this.message = message;}
+			this.message = message;
+		}
 
 		public String getAuthor() {
 			return author;
 		}
+
 		public String getMessage() {
 			return message;
 		}
@@ -393,18 +404,17 @@ public class DebianPackageBuilder extends Builder {
 		Map<String, String> changelog = new HashMap<String, String>();
 		Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
 
-		for(String row: changelogOutput.split("\n")) {
+		for (String row : changelogOutput.split("\n")) {
 			Matcher matcher = changelogFormat.matcher(row);
 			if (matcher.matches()) {
-				 changelog.put(matcher.group(1), matcher.group(2));
+				changelog.put(matcher.group(1), matcher.group(2));
 			}
 		}
 
 		return changelog;
 	}
 
-	private void importKeys(FilePath workspace, Runner runner)
-			throws InterruptedException, DebianizingException, IOException {
+	private void importKeys(FilePath workspace, Runner runner) throws InterruptedException, DebianizingException, IOException {
 		if (!runner.runCommandForResult("gpg --list-key {0}", getDescriptor().getAccountName())) {
 			FilePath publicKey = workspace.createTextTempFile("public", "key", getDescriptor().getPublicKey());
 			runner.runCommand("gpg --import ''{0}''", publicKey.getRemote());
@@ -428,7 +438,7 @@ public class DebianPackageBuilder extends Builder {
 
 	@Override
 	public DescriptorImpl getDescriptor() {
-		return (DescriptorImpl)super.getDescriptor();
+		return (DescriptorImpl) super.getDescriptor();
 	}
 
 	@Extension
@@ -438,6 +448,16 @@ public class DebianPackageBuilder extends Builder {
 		private String privateKey;
 		private String accountName;
 		private String passphrase;
+		/**
+		 * Ignore the required dependencies to build the package.
+		 * Defaults to false for backward compatibility
+		 */
+		private boolean ignoreDeps = false;
+		/**
+		 * Do not install the necessary tools to build a package.
+		 * Defaults to false for backward compatibility
+		 */
+		private boolean dontInstallTools = false;
 
 		public DescriptorImpl() {
 			load();
@@ -463,6 +483,8 @@ public class DebianPackageBuilder extends Builder {
 			setPublicKey(json.getString("publicKey"));
 			setAccountName(json.getString("accountName"));
 			setPassphrase(json.getString("passphrase"));
+			setIgnoreDeps(json.getBoolean("ignoreDeps"));
+			setDontInstallTools(json.getBoolean("dontInstallTools"));
 
 			save();
 			return true; // indicate that everything is good so far
@@ -496,8 +518,23 @@ public class DebianPackageBuilder extends Builder {
 			this.passphrase = passphrase;
 		}
 
-	}
+		public boolean isIgnoreDeps() {
+			return ignoreDeps;
+		}
 
+		public void setIgnoreDeps(boolean ignoreDeps) {
+			this.ignoreDeps = ignoreDeps;
+		}
+
+		public boolean isDontInstallTools() {
+			return dontInstallTools;
+		}
+
+		public void setDontInstallTools(boolean dontInstallTools) {
+			this.dontInstallTools = dontInstallTools;
+		}
+
+	}
 
 	/**
 	 * @param build
@@ -506,7 +543,7 @@ public class DebianPackageBuilder extends Builder {
 	public static Collection<String> getRemoteModules(AbstractBuild<?, ?> build) {
 		ArrayList<String> result = new ArrayList<String>();
 
-		for (DebianPackageBuilder builder: getDPBuilders(build)) {
+		for (DebianPackageBuilder builder : getDPBuilders(build)) {
 			result.add(new FilePath(build.getWorkspace().getChannel(), builder.getRemoteDebian(build.getWorkspace())).child("..").getRemote());
 		}
 
@@ -522,8 +559,8 @@ public class DebianPackageBuilder extends Builder {
 		ArrayList<DebianPackageBuilder> result = new ArrayList<DebianPackageBuilder>();
 
 		if (build.getProject() instanceof Project) {
-			DescribableList<Builder, Descriptor<Builder>> builders = ((Project)build.getProject()).getBuildersList();
-			for (Builder builder: builders) {
+			DescribableList<Builder, Descriptor<Builder>> builders = ((Project) build.getProject()).getBuildersList();
+			for (Builder builder : builders) {
 				if (builder instanceof DebianPackageBuilder) {
 					result.add((DebianPackageBuilder) builder);
 				}
