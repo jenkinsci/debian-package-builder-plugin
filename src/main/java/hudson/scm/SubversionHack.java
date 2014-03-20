@@ -7,7 +7,7 @@ import java.lang.reflect.Field;
 import java.util.Map;
 
 public class SubversionHack {
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Map<String, Long> getRevisionsForBuild(SubversionSCM scm, AbstractBuild build) throws IOException, InterruptedException, IllegalArgumentException, IllegalAccessException {
 		SCMRevisionState revisionInfo = scm.calcRevisionsFromBuild(build, null, null);
 		for(Field field: revisionInfo.getClass().getDeclaredFields()) {
