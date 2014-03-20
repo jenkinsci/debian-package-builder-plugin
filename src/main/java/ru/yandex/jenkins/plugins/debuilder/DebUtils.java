@@ -93,12 +93,12 @@ public class DebUtils {
 		 * @throws InterruptedException
 		 *             Same as {@link Shell#perform(AbstractBuild, Launcher, BuildListener)}
 		 */
-		public boolean runCommandForResult(String command) throws InterruptedException {
+		public boolean runCommandForResult(String command) throws InterruptedException, DebianizingException {
 			announce("running command <{0}>", command);
 			return new Shell(command).perform(build, launcher, listener);
 		}
 
-		public boolean runCommandForResult(String commandTemplate, Object... arguments) throws InterruptedException, DebianizingException {
+		public boolean runCommandForResult(String commandTemplate, Object ... arguments) throws InterruptedException, DebianizingException {
 			return this.runCommandForResult(MessageFormat.format(commandTemplate, arguments));
 		}
 
@@ -143,7 +143,7 @@ public class DebUtils {
 		 *            The message
 		 */
 		public void announce(String message) {
-			listener.getLogger().println(MessageFormat.format("[{0}] {1}", prefix, message));
+			listener.getLogger().println(MessageFormat.format("[{0}] {1}" , prefix, message));
 		}
 
 		/**

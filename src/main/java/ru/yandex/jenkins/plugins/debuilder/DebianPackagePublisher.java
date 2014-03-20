@@ -43,6 +43,7 @@ import org.tmatesoft.svn.core.auth.ISVNAuthenticationProvider;
 
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
+
 public class DebianPackagePublisher extends Recorder implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private static final String PREFIX = "debian-package-publisher";
@@ -78,7 +79,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	 * @return Repository Object
 	 */
 	private DebianPackageRepo getRepo() {
-		for (DebianPackageRepo repo : getDescriptor().getRepositories()) {
+		for(DebianPackageRepo repo: getDescriptor().getRepositories()) {
 			if (repo.getName().equals(repoId)) {
 				return repo;
 			}
@@ -95,8 +96,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static String getUsedCommitMessage(AbstractBuild build) {
-		DescribableList<Publisher, Descriptor<Publisher>> publishersList = ((Project) build.getProject()).getPublishersList();
-		for (Publisher publisher : publishersList) {
+		DescribableList<Publisher, Descriptor<Publisher>> publishersList = ((Project)build.getProject()).getPublishersList();
+		for (Publisher publisher: publishersList) {
 			if (publisher instanceof DebianPackagePublisher) {
 				return ((DebianPackagePublisher) publisher).commitMessage;
 			}
@@ -121,7 +122,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		String keysDir = "debian-package-builder-keys";
 
 		String relativeKeyPath = new File(keysDir, getRepo().getKeypath()).getPath();
-		File absoluteKeyPath = new File(Jenkins.getInstance().getRootDir(), relativeKeyPath);
+		File absoluteKeyPath = new File (Jenkins.getInstance().getRootDir(), relativeKeyPath);
 		FilePath localKey = new FilePath(absoluteKeyPath);
 
 		FilePath remoteKey = build.getWorkspace().createTextTempFile("private", "key", localKey.readToString());
@@ -130,7 +131,18 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	}
 
 	private void generateDuploadConf(String filePath, AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
-		String confTemplate = "package config;\n\n" + "$default_host = '${name}';\n\n" + "$cfg{'${name}'} = {\n" + "\tlogin => '${login}',\n" + "\tfqdn => '${fqdn}',\n" + "\tmethod => '${method}',\n" + "\tincoming => '${incoming}',\n" + "\tdinstall_runs => 0,\n" + "\toptions => '${options}',\n" + "};\n\n" + "1;\n";
+		String confTemplate =
+				"package config;\n\n" +
+				"$default_host = '${name}';\n\n" +
+				"$cfg{'${name}'} = {\n" +
+				"\tlogin => '${login}',\n" +
+				"\tfqdn => '${fqdn}',\n" +
+				"\tmethod => '${method}',\n" +
+				"\tincoming => '${incoming}',\n" +
+				"\tdinstall_runs => 0,\n" +
+				"\toptions => '${options}',\n" +
+				"};\n\n" +
+				"1;\n";
 
 		Map<String, String> values = new HashMap<String, String>();
 
@@ -147,7 +159,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		String conf = substitutor.replace(confTemplate);
 
 		FilePath duploadConf = build.getWorkspace().createTempFile("dupload", "conf");
-		duploadConf.touch(System.currentTimeMillis() / 1000);
+		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
 		runner.runCommand("sudo mv ''{0}'' ''{1}''", duploadConf.getRemote(), filePath);
@@ -178,7 +190,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 			List<String> builtModules = new ArrayList<String>();
 
-			for (BuildBadgeAction action : build.getBadgeActions()) {
+			for (BuildBadgeAction action: build.getBadgeActions()) {
 				if (action instanceof DebianBadge) {
 					builtModules.add(((DebianBadge) action).getModule());
 				}
@@ -186,8 +198,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 			boolean wereBuilds = false;
 
-			for (String module : DebianPackageBuilder.getRemoteModules(build)) {
-				if (!builtModules.contains(new FilePath(build.getWorkspace().getChannel(), module).child("debian").getRemote())) {
+			for (String module: DebianPackageBuilder.getRemoteModules(build)) {
+				if (! builtModules.contains(new FilePath(build.getWorkspace().getChannel(), module).child("debian").getRemote())) {
 					runner.announce("Module in {0} was not built - not releasing", module);
 					continue;
 				}
@@ -223,9 +235,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		SCM scm = build.getProject().getScm();
 
 		if (scm instanceof SubversionSCM) {
-			commitToSVN(build, runner, (SubversionSCM) scm, commitMessage);
+			commitToSVN(build, runner, (SubversionSCM)scm, commitMessage);
 		} else if (scm instanceof GitSCM) {
-			commitToGitAndPush(build, runner, (GitSCM) scm, commitMessage);
+			commitToGitAndPush(build, runner, (GitSCM)scm, commitMessage);
 		} else {
 			throw new DebianizingException("SCM used is not a know one but " + scm.getType());
 		}
@@ -252,7 +264,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		ISVNAuthenticationProvider authenticationProvider = descriptor.createAuthenticationProvider(build.getProject());
 
 		try {
-			for (String module : DebianPackageBuilder.getRemoteModules(build)) {
+			for (String module: DebianPackageBuilder.getRemoteModules(build)) {
 				SVNCommitHelper helper = new SVNCommitHelper(authenticationProvider, module, commitMessage);
 				runner.announce("Commited revision <{0}> of <{2}> with message <{1}>", runner.getChannel().call(helper), commitMessage, module);
 			}
@@ -298,7 +310,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		public ListBoxModel doFillRepoIdItems() {
 			ListBoxModel model = new ListBoxModel();
 
-			for (DebianPackageRepo repo : repos) {
+			for (DebianPackageRepo repo: repos) {
 				model.add(repo.getName(), repo.getName());
 			}
 
@@ -319,7 +331,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			setDontInstallTools(formData.getBoolean("dontInstallTools"));
 			save();
 
-			return super.configure(req, formData);
+			return super.configure(req,formData);
 		}
 
 		@SuppressWarnings("rawtypes")
