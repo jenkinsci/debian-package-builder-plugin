@@ -52,6 +52,16 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	private String commitMessage;
 	private final boolean commitChanges;
 
+	/**
+	 * Constructor with the required fields that jenkins require
+	 * 
+	 * @param repoId
+	 *            The repo id
+	 * @param commitMessage
+	 *            The commit message requested by SCMs
+	 * @param commitChanges
+	 *            Condition required to commit the changes
+	 */
 	@DataBoundConstructor
 	public DebianPackagePublisher(String repoId, String commitMessage, boolean commitChanges) {
 		this.commitChanges = commitChanges;
@@ -63,6 +73,11 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 	}
 
+	/**
+	 * Get the repository object from its id
+	 * 
+	 * @return Repository Object
+	 */
 	private DebianPackageRepo getRepo() {
 		for(DebianPackageRepo repo: getDescriptor().getRepositories()) {
 			if (repo.getName().equals(repoId)) {
@@ -72,6 +87,13 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return null;
 	}
 
+	/**
+	 * Get the message used to commit changes an a arbitrary build
+	 * 
+	 * @param build
+	 *            The build where the message will be extracted
+	 * @return The configured message
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static String getUsedCommitMessage(AbstractBuild build) {
 		DescribableList<Publisher, Descriptor<Publisher>> publishersList = ((Project)build.getProject()).getPublishersList();
@@ -84,6 +106,18 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return "";
 	}
 
+	/**
+	 * The key located inside the file debian-package-builder-keys on the root
+	 * of the Jenkins Instalation is copied to the remote slave.
+	 * 
+	 * @param build
+	 *            The build where te key will be stored
+	 * @return The remote path to the key
+	 * @throws IOException
+	 *             If some error occurs creating the remote temp file
+	 * @throws InterruptedException
+	 *             If the file operations where interrupted
+	 */
 	private String getRemoteKeyPath(AbstractBuild<?, ?> build) throws IOException, InterruptedException {
 		String keysDir = "debian-package-builder-keys";
 
@@ -149,7 +183,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		String duploadConfPath = "/etc/dupload.conf";
 
 		try {
-			runner.runCommand("sudo apt-get install dupload devscripts");
+			if (!getDescriptor().isDontInstallTools()) {
+				runner.runCommand("sudo apt-get install dupload devscripts");
+			}
 			generateDuploadConf(duploadConfPath, build, runner);
 
 			List<String> builtModules = new ArrayList<String>();
@@ -256,6 +292,12 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 		private List<DebianPackageRepo> repos = new ArrayList<DebianPackageRepo>();
 
+		/**
+		 * Do not install the necessary tools to build a package.
+		 * Defaults to false for backward compatibility
+		 */
+		private boolean dontInstallTools = false;
+
 		public DescriptorImpl() {
 			super();
 			load();
@@ -286,6 +328,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		@Override
 		public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
 			repos = req.bindJSONToList(DebianPackageRepo.class, formData.get("repositories"));
+			setDontInstallTools(formData.getBoolean("dontInstallTools"));
 			save();
 
 			return super.configure(req,formData);
@@ -300,6 +343,14 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		@Override
 		public String getDisplayName() {
 			return "Publish debian packages";
+		}
+
+		public boolean isDontInstallTools() {
+			return dontInstallTools;
+		}
+
+		public void setDontInstallTools(boolean dontInstallTools) {
+			this.dontInstallTools = dontInstallTools;
 		}
 	}
 

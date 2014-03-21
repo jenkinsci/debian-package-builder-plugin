@@ -85,8 +85,10 @@ public class DebianPackageBuilder extends Builder {
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
 		try {
-			runner.runCommand("sudo apt-get update");
-			runner.runCommand("sudo apt-get install aptitude pbuilder");
+			if (!getDescriptor().isDontInstallTools()) {
+				runner.runCommand("sudo apt-get update");
+				runner.runCommand("sudo apt-get install aptitude pbuilder");
+			}
 
 			importKeys(workspace, runner);
 
@@ -108,7 +110,9 @@ public class DebianPackageBuilder extends Builder {
 				writeChangelog(build, listener, remoteDebian, runner, changes);
 			}
 
-			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			if (!getDescriptor().isIgnoreDeps()) {
+				runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			}
 			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
 
 			archiveArtifacts(build, runner, latestVersion);
@@ -140,6 +144,14 @@ public class DebianPackageBuilder extends Builder {
 		path.copyRecursiveTo(mask, new FilePath(build.getArtifactsDir()));
 	}
 
+	/**
+	 * Return the path to the 'debian' directory, where the control build files
+	 * like changelog and rules are stored.
+	 * 
+	 * @param workspace
+	 *            The root of the build workspace
+	 * @return The absolute path to the 'debian' dir
+	 */
 	public String getRemoteDebian(FilePath workspace) {
 		if (pathToDebian.endsWith("debian") || pathToDebian.endsWith("debian/")) {
 			return workspace.child(pathToDebian).getRemote();
@@ -361,11 +373,13 @@ public class DebianPackageBuilder extends Builder {
 
 		public Change(String author, String message) {
 			this.author = author;
-			this.message = message;}
+			this.message = message;
+		}
 
 		public String getAuthor() {
 			return author;
 		}
+
 		public String getMessage() {
 			return message;
 		}
@@ -438,6 +452,16 @@ public class DebianPackageBuilder extends Builder {
 		private String privateKey;
 		private String accountName;
 		private String passphrase;
+		/**
+		 * Ignore the required dependencies to build the package.
+		 * Defaults to false for backward compatibility
+		 */
+		private boolean ignoreDeps = false;
+		/**
+		 * Do not install the necessary tools to build a package.
+		 * Defaults to false for backward compatibility
+		 */
+		private boolean dontInstallTools = false;
 
 		public DescriptorImpl() {
 			load();
@@ -463,6 +487,8 @@ public class DebianPackageBuilder extends Builder {
 			setPublicKey(json.getString("publicKey"));
 			setAccountName(json.getString("accountName"));
 			setPassphrase(json.getString("passphrase"));
+			setIgnoreDeps(json.getBoolean("ignoreDeps"));
+			setDontInstallTools(json.getBoolean("dontInstallTools"));
 
 			save();
 			return true; // indicate that everything is good so far
@@ -494,6 +520,22 @@ public class DebianPackageBuilder extends Builder {
 
 		public void setPassphrase(String passphrase) {
 			this.passphrase = passphrase;
+		}
+
+		public boolean isIgnoreDeps() {
+			return ignoreDeps;
+		}
+
+		public void setIgnoreDeps(boolean ignoreDeps) {
+			this.ignoreDeps = ignoreDeps;
+		}
+
+		public boolean isDontInstallTools() {
+			return dontInstallTools;
+		}
+
+		public void setDontInstallTools(boolean dontInstallTools) {
+			this.dontInstallTools = dontInstallTools;
 		}
 
 	}

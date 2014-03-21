@@ -15,5 +15,13 @@
     <f:entry title="${%GPG passphrase}" field="passphrase" value="${descriptor.passphrase}">
       <f:password />
     </f:entry>
+
+    <f:entry title="${%Ignore the dependecies instalation process?}" field="ignoreDeps">
+      <f:checkbox checked="${instance.ignoreDeps}" default="unchecked" />
+    </f:entry>
+
+    <f:entry title="${%Do not install the required tools}" field="dontInstallTools">
+      <f:checkbox checked="${instance.dontInstallTools}" default="unchecked" />
+    </f:entry>
   </f:section>
 </j:jelly>
