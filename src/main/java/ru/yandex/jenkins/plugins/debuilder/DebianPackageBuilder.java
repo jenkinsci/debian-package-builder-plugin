@@ -14,6 +14,8 @@ import hudson.model.Cause.UserIdCause;
 import hudson.model.Descriptor;
 import hudson.model.Project;
 import hudson.model.Run;
+import hudson.plugins.git.GitChangeSet;
+import hudson.plugins.git.GitSCM;
 import hudson.scm.SubversionHack;
 import hudson.scm.SvnClientManager;
 import hudson.scm.ChangeLogSet;
@@ -45,6 +47,8 @@ import net.sf.json.JSONObject;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.jgit.lib.ObjectId;
+import org.jenkinsci.plugins.gitclient.GitClient;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 import org.tmatesoft.svn.core.ISVNLogEntryHandler;
@@ -177,10 +181,7 @@ public class DebianPackageBuilder extends Builder {
 
 		List<Change> changes;
 
-		if (! (scm instanceof SubversionSCM)) {
-			runner.announce("SCM in use is not Subversion (but <{0}> instead), defaulting to changes since last build", scm.getClass().getName());
-			changes = getChangesSinceLastBuild(runner, build, ourMessage);
-		} else {
+		if (scm instanceof SubversionSCM) {
 			helper.setRevision(getSVNRevision(build, (SubversionSCM) scm, runner, remoteDebian, listener));
 			if ("".equals(oldRevision)) {
 				runner.announce("No last revision known, using changes since last successful build to populate debian/changelog");
@@ -189,6 +190,12 @@ public class DebianPackageBuilder extends Builder {
 				runner.announce("Calculating changes since revision {0}.", oldRevision);
 				changes = getChangesFromSubversion(runner, (SubversionSCM) scm, build, remoteDebian, oldRevision, helper.getRevision(), ourMessage);
 			}
+		} else if (scm instanceof GitSCM) {
+			runner.announce("Calculating changes from git log");
+			changes = getChangesFromGit(build, listener, (GitSCM) scm);
+		} else {
+			runner.announce("SCM in use is not Subversion nor Git (but <{0}> instead), defaulting to changes since last build", scm.getClass().getName());
+			changes = getChangesSinceLastBuild(runner, build, ourMessage);
 		}
 
 		return new ImmutablePair<VersionHelper, List<Change>>(helper, changes);
@@ -324,6 +331,32 @@ public class DebianPackageBuilder extends Builder {
 		return result;
 	}
 
+	private List<Change> getChangesFromGit(AbstractBuild build, BuildListener listener, GitSCM scm) throws DebianizingException {
+		try {
+			GitClient cli = scm.createClient(listener, null, build);
+			List<Change> changes = new ArrayList<Change>();
+			FilePath workspace = build.getWorkspace();
+			String changelogPath = getRemoteDebian(workspace) + "/changelog";
+
+			for (ObjectId rev : cli.revListAll()) {
+				GitChangeSet changeSet = new GitChangeSet(cli.showRevision(rev), true);
+				for (GitChangeSet.Path path : changeSet.getPaths()) {
+					String filePath = workspace.child(path.getPath()).getRemote();
+
+					if (filePath.equals(changelogPath)) {
+						return changes;
+					}
+				}
+				changes.add(new Change(changeSet.getAuthorName(), changeSet.getMsg()));
+			}
+			return changes;
+		} catch (IOException e) {
+			throw new DebianizingException("IOException: " + e.getMessage(), e);
+		} catch (InterruptedException e) {
+			throw new DebianizingException("InterruptedException: " + e.getMessage(), e);
+		}
+	}
+
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private List<Change> getChangesSinceLastBuild(Runner runner, AbstractBuild build, String ourMessage) throws InterruptedException, DebianizingException {
 		List<Change> result = new ArrayList<DebianPackageBuilder.Change>();
@@ -332,7 +365,7 @@ public class DebianPackageBuilder extends Builder {
 		int lastSuccessNumber = lastSuccessfulBuild == null ? 0 : lastSuccessfulBuild.number;
 
 		for (int num = lastSuccessNumber + 1; num <= build.number; num ++) {
-			AbstractBuild run = (AbstractBuild) build.getProject().getBuildByNumber(num);
+			AbstractBuild run = build.getProject().getBuildByNumber(num);
 
 			if (run == null) {
 				continue;
