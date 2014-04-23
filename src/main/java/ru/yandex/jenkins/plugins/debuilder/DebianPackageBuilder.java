@@ -96,7 +96,7 @@ public class DebianPackageBuilder extends Builder {
 			}
 
 			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
-			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
+			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());
 
 			archiveArtifacts(build, runner, latestVersion);
 
@@ -229,12 +229,12 @@ public class DebianPackageBuilder extends Builder {
 
 	private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --distributor debian --append ''{3}''", getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --distributor debian --append ''{3}''", getDescriptor().getAccountEmail(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
 	}
 
 	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message) throws InterruptedException, DebianizingException {
 		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --distributor debian --newVersion {3} ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --distributor debian --newVersion {3} ''{4}''", getDescriptor().getAccountEmail(), getDescriptor().getAccountName(), remoteDebian, helper, clearMessage(message));
 	}
 
 	/**
@@ -257,13 +257,13 @@ public class DebianPackageBuilder extends Builder {
 
 	private void importKeys(FilePath workspace, Runner runner)
 			throws InterruptedException, DebianizingException, IOException {
-		if (!runner.runCommandForResult("gpg --list-key {0}", getDescriptor().getAccountName())) {
+		if (!runner.runCommandForResult("gpg --list-key {0}", getDescriptor().getAccountEmail())) {
 			FilePath publicKey = workspace.createTextTempFile("public", "key", getDescriptor().getPublicKey());
 			runner.runCommand("gpg --import ''{0}''", publicKey.getRemote());
 			publicKey.delete();
 		}
 
-		if (!runner.runCommandForResult("gpg --list-secret-key {0}", getDescriptor().getAccountName())) {
+		if (!runner.runCommandForResult("gpg --list-secret-key {0}", getDescriptor().getAccountEmail())) {
 			FilePath privateKey = workspace.createTextTempFile("private", "key", getDescriptor().getPrivateKey());
 			runner.runCommand("gpg --import ''{0}''", privateKey.getRemote());
 			privateKey.delete();
@@ -289,6 +289,7 @@ public class DebianPackageBuilder extends Builder {
 		private String publicKey;
 		private String privateKey;
 		private String accountName;
+		private String accountEmail;
 		private String passphrase;
 
 		public DescriptorImpl() {
@@ -313,7 +314,8 @@ public class DebianPackageBuilder extends Builder {
 		public boolean configure(StaplerRequest staplerRequest, JSONObject json) throws FormException {
 			setPrivateKey(json.getString("privateKey"));
 			setPublicKey(json.getString("publicKey"));
-			setAccountName(json.getString("accountName"));
+			setAccountName("Jenkins");
+			setAccountEmail(json.getString("accountEmail"));
 			setPassphrase(json.getString("passphrase"));
 
 			save();
@@ -338,6 +340,14 @@ public class DebianPackageBuilder extends Builder {
 
 		public void setAccountName(String accountName) {
 			this.accountName = accountName;
+		}
+
+		public String getAccountEmail() {
+			return accountEmail;
+		}
+
+		public void setAccountEmail(String accountEmail) {
+			this.accountEmail = accountEmail;
 		}
 
 		public String getPassphrase() {

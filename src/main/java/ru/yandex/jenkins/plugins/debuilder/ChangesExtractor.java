@@ -7,7 +7,9 @@ import hudson.model.Run;
 import hudson.plugins.git.GitChangeSet;
 import hudson.plugins.git.GitSCM;
 import hudson.scm.*;
+import jenkins.model.Jenkins;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.PersonIdent;
 import org.jenkinsci.plugins.gitclient.GitClient;
 import org.tmatesoft.svn.core.ISVNLogEntryHandler;
 import org.tmatesoft.svn.core.SVNException;
@@ -20,9 +22,12 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static hudson.scm.SubversionSCM.ModuleLocation;
 import static ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
+import static ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.DescriptorImpl;
 
 public class ChangesExtractor {
 
@@ -127,7 +132,9 @@ public class ChangesExtractor {
 		try {
 			GitClient cli = scm.createClient(listener, null, build);
 			FilePath workspace = build.getWorkspace();
-			return getChangesFromGit(cli, workspace, remoteDebian);
+			DescriptorImpl descriptor = (DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class);
+			PersonIdent account = new PersonIdent(descriptor.getAccountName(), descriptor.getAccountEmail());
+			return getChangesFromGit(cli, workspace, remoteDebian, account);
 		} catch (IOException e) {
 			throw new DebianizingException("IOException: " + e.getMessage(), e);
 		} catch (InterruptedException e) {
@@ -135,21 +142,51 @@ public class ChangesExtractor {
 		}
 	}
 
-	static List<Change> getChangesFromGit(GitClient cli, FilePath workspace, String remoteDebian) throws InterruptedException {
+	static List<Change> getChangesFromGit(GitClient cli, FilePath workspace, String remoteDebian, PersonIdent account) throws InterruptedException {
 		String changelogPath = remoteDebian + "/changelog";
-		LinkedList<Change> changes = new LinkedList<Change>();
+		LinkedList<Change> changesSinceLastChangelogModification = new LinkedList<Change>();
+		LinkedList<Change> changesSinceLastChangelogModificationByPlugin = new LinkedList<Change>();
+		boolean firstChangelogModificationFound = false;
 
 		for (ObjectId rev : cli.revListAll()) {
-			GitChangeSet changeSet = new GitChangeSet(cli.showRevision(rev), true);
+			List<String> lines = cli.showRevision(rev);
+			GitChangeSet changeSet = new GitChangeSet(lines, true);
+			String email = getAuthorEmailFromGitRevision(lines);
+			Change change = new Change(changeSet.getAuthorName(), changeSet.getMsg());
+
 			for (GitChangeSet.Path path : changeSet.getPaths()) {
 				String filePath = workspace.child(path.getPath()).getRemote();
 				if (filePath.equals(changelogPath)) {
-					return changes;
+					if (changeSet.getAuthorName().equals(account.getName())
+						& email.equals(account.getEmailAddress())) {
+						return changesSinceLastChangelogModificationByPlugin;
+					} else {
+						firstChangelogModificationFound = true;
+					}
 				}
 			}
-			changes.addFirst(new Change(changeSet.getAuthorName(), changeSet.getMsg()));
+			if (!firstChangelogModificationFound) {
+				changesSinceLastChangelogModification.addFirst(change);
+			}
+			changesSinceLastChangelogModificationByPlugin.addFirst(change);
 		}
-		return changes;
+		return changesSinceLastChangelogModification;
+	}
+
+	/*
+		This is temporary solution. GitChangeSet doesn't provide any method to extract email of commit author now.
+	 */
+	static String getAuthorEmailFromGitRevision(List<String> lines) {
+		Pattern pattern = Pattern.compile("^author [^<]*<(.*)> .*$");
+
+		for (String line: lines) {
+			Matcher matcher = pattern.matcher(line);
+			if (matcher.matches()) {
+				return matcher.group(1);
+			}
+		}
+
+		return "";
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })

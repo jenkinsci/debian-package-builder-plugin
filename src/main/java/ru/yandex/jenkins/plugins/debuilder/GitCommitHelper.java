@@ -34,6 +34,7 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 	private final TaskListener listener;
 	private final String gitExe;
 	private final String accountName;
+	private final String accountEmail;
 	private final String commitMessage;
 	private Collection<String> modules;
 
@@ -43,7 +44,9 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 		this.environment = build.getEnvironment(runner.getListener());
 		this.listener = runner.getListener();
 		this.gitExe = scm.getGitExe(build.getBuiltOn(), listener);
-		this.accountName = ((DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class)).getAccountName();
+		DescriptorImpl descriptor = (DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class);
+		this.accountName = descriptor.getAccountName();
+		this.accountEmail = descriptor.getAccountEmail();
 	}
 
 	@Override
@@ -55,11 +58,13 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 
 		if (git.hasGitRepo()) {
 			
-			PersonIdent person = new PersonIdent("Jenkins", accountName);
+			PersonIdent person = new PersonIdent(accountName, accountEmail);
 			for (String module: modules) {
 				git.add(new File(module, "debian/changelog").getCanonicalPath());
 			}
-			git.commit(commitMessage, person, person);
+			git.setAuthor(person);
+			git.setCommitter(person);
+			git.commit(commitMessage);
 			
 			return true;
 		} else {
