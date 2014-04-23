@@ -51,12 +51,14 @@ public class DebianPackageBuilder extends Builder {
 
 	// location of debian catalog relative to the workspace root
 	private final String pathToDebian;
+	private final String nextVersion;
 	private final boolean generateChangelog;
 	private final boolean buildEvenWhenThereAreNoChanges;
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
 		this.pathToDebian = pathToDebian;
+		this.nextVersion = nextVersion;
 		this.generateChangelog = generateChangelog;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
 	}
@@ -149,9 +151,16 @@ public class DebianPackageBuilder extends Builder {
 	 */
 	@SuppressWarnings({ "rawtypes" })
 	private Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, String remoteDebian) throws DebianizingException, InterruptedException, IOException {
-		VersionHelper helper = new VersionHelper(latestVersion);
-		runner.announce("Determined latest revision to be {0}", helper.getRevision());
-		helper.setMinorVersion(helper.getMinorVersion() + 1);
+		VersionHelper helper;
+		EnvVars env = build.getEnvironment(runner.getListener());
+		String nextVersion = env.expand(this.nextVersion).trim();
+		if (nextVersion.isEmpty()) {
+			helper = new VersionHelper(latestVersion);
+			runner.announce("Determined latest revision to be {0}", helper.getRevision());
+			helper.setMinorVersion(helper.getMinorVersion() + 1);
+		} else {
+			helper = new VersionHelper(nextVersion);
+		}
 
 		SCM scm = build.getProject().getScm();
 		String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
@@ -276,6 +285,10 @@ public class DebianPackageBuilder extends Builder {
 
 	public String getPathToDebian() {
 		return pathToDebian;
+	}
+
+	public String getNextVersion() {
+		return nextVersion;
 	}
 
 	@Override

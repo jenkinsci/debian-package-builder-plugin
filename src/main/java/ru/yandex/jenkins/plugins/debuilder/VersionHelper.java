@@ -20,7 +20,7 @@ public class VersionHelper {
 	private final int revisionEntry;
 
 	/**
-	 * As {@link VersionHelper#VersionHelper(String, String)} with "." separator
+	 * As {@link VersionHelper#VersionHelper(String, char)} with "." separator
 	 * @param version
 	 */
 	public VersionHelper(String version) {
@@ -28,7 +28,7 @@ public class VersionHelper {
 	}
 
 	/**
-	 * As {@link VersionHelper#VersionHelper(String[])} with elements got by splitting string with given character.
+	 * As {@link VersionHelper#VersionHelper(String[], String)} with elements got by splitting string with given character.
 	 * @param version
 	 * @param separatorCharacter
 	 */
