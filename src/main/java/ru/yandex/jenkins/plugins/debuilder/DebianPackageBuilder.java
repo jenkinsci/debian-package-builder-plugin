@@ -63,6 +63,21 @@ public class DebianPackageBuilder extends Builder {
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
 	}
 
+	public String getPathToDebian() {
+		return pathToDebian;
+	}
+
+	public String getNextVersion() {
+		return nextVersion;
+	}
+
+	public boolean isGenerateChangelog() {
+		return generateChangelog;
+	}
+
+	public boolean isBuildEvenWhenThereAreNoChanges() {
+		return buildEvenWhenThereAreNoChanges;
+	}
 
 	@Override
 	public boolean perform(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, BuildListener listener) {
@@ -279,18 +294,6 @@ public class DebianPackageBuilder extends Builder {
 		}
 	}
 
-	public boolean isGenerateChangelog() {
-		return generateChangelog;
-	}
-
-	public String getPathToDebian() {
-		return pathToDebian;
-	}
-
-	public String getNextVersion() {
-		return nextVersion;
-	}
-
 	@Override
 	public DescriptorImpl getDescriptor() {
 		return (DescriptorImpl)super.getDescriptor();
@@ -406,10 +409,6 @@ public class DebianPackageBuilder extends Builder {
 		}
 
 		return result;
-	}
-
-	public boolean isBuildEvenWhenThereAreNoChanges() {
-		return buildEvenWhenThereAreNoChanges;
 	}
 
 }
