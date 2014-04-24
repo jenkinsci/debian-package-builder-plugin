@@ -25,9 +25,9 @@ import ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.DescriptorImpl;
  * Note to future self: all the fields should be serializable
  * 
  * @author pupssman
- * 
+ *
  */
-public class GitCommitHelper implements FileCallable<Boolean> {
+public class GitCommitHelper implements FileCallable<Boolean>{
 
 	private static final long serialVersionUID = 1L;
 	private final EnvVars environment;
@@ -49,22 +49,26 @@ public class GitCommitHelper implements FileCallable<Boolean> {
 	}
 
 	@Override
-	public Boolean invoke(File localWorkspace, VirtualChannel channel) throws IOException, InterruptedException {
+	public Boolean invoke(File localWorkspace, VirtualChannel channel) throws IOException,
+			InterruptedException {
 
 		File gitClonePath = localWorkspace;
-		if (gitPrefix != null)
+		if (gitPrefix != null) {
 			gitClonePath = new File(localWorkspace, gitPrefix);
+		}
 
-		GitClient git = Git.with(listener, environment).in(gitClonePath).using(gitExe).getClient();
+		GitClient git = Git.with(listener, environment)
+				.in(gitClonePath).using(gitExe)
+				.getClient();
 
 		if (git.hasGitRepo()) {
-
+			
 			PersonIdent person = new PersonIdent("Jenkins", accountName);
-			for (String module : modules) {
+			for (String module: modules) {
 				git.add(new File(module, "debian/changelog").getCanonicalPath());
 			}
 			git.commit(commitMessage, person, person);
-
+			
 			return true;
 		} else {
 			return false;
