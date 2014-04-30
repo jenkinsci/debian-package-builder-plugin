@@ -52,10 +52,11 @@ public class VersionHelper {
 	private int getMinorEntry() {
 		int lastNumeric = -1;
 
-		for (int i = 0; i < versionElements.size() ; i++) {
+		for (int i = versionElements.size() - 1; i >= 0; i--) {
 			try {
 				Integer.parseInt(versionElements.get(i));
 				lastNumeric = i;
+				break;
 			} catch (NumberFormatException e) {
 				// pass
 			}
@@ -105,6 +106,12 @@ public class VersionHelper {
 		}
 	}
 
+	/**
+	 * Replace the last numeric element.
+	 * If there is no numeric element, add the new version at the end.
+	 * @param newVersion
+	 *            The new minor version
+	 */
 	public void setMinorVersion(int newVersion) {
 		String versionElement = Integer.toString(newVersion);
 		if (minorEntry >= 0) {

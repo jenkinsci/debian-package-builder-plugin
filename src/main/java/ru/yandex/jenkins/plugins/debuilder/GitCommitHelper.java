@@ -33,6 +33,7 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 	private final EnvVars environment;
 	private final TaskListener listener;
 	private final String gitExe;
+	private final String gitPrefix;
 	private final String accountName;
 	private final String commitMessage;
 	private Collection<String> modules;
@@ -43,14 +44,21 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 		this.environment = build.getEnvironment(runner.getListener());
 		this.listener = runner.getListener();
 		this.gitExe = scm.getGitExe(build.getBuiltOn(), listener);
+		this.gitPrefix = scm.getRelativeTargetDir();
 		this.accountName = ((DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class)).getAccountName();
 	}
 
 	@Override
 	public Boolean invoke(File localWorkspace, VirtualChannel channel) throws IOException,
 			InterruptedException {
+
+		File gitClonePath = localWorkspace;
+		if (gitPrefix != null) {
+			gitClonePath = new File(localWorkspace, gitPrefix);
+		}
+
 		GitClient git = Git.with(listener, environment)
-				.in(localWorkspace).using(gitExe)
+				.in(gitClonePath).using(gitExe)
 				.getClient();
 
 		if (git.hasGitRepo()) {
