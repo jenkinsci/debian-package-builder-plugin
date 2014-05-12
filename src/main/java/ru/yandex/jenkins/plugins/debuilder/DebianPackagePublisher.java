@@ -149,7 +149,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		String duploadConfPath = "/etc/dupload.conf";
 
 		try {
-			runner.runCommand("sudo apt-get install dupload devscripts");
+			runner.runCommand("sudo apt-get -y install dupload devscripts");
 			generateDuploadConf(duploadConfPath, build, runner);
 
 			List<String> builtModules = new ArrayList<String>();
