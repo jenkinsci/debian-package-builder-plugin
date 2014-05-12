@@ -51,13 +51,15 @@ public class DebianPackageBuilder extends Builder {
 
 	// location of debian catalog relative to the workspace root
 	private final String pathToDebian;
+	private final boolean customVersioning;
 	private final String nextVersion;
 	private final boolean generateChangelog;
 	private final boolean buildEvenWhenThereAreNoChanges;
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, Boolean customVersioning, String nextVersion, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
 		this.pathToDebian = pathToDebian;
+		this.customVersioning = customVersioning;
 		this.nextVersion = nextVersion;
 		this.generateChangelog = generateChangelog;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
@@ -65,6 +67,10 @@ public class DebianPackageBuilder extends Builder {
 
 	public String getPathToDebian() {
 		return pathToDebian;
+	}
+
+	public boolean isCustomVersioning() {
+		return customVersioning;
 	}
 
 	public String getNextVersion() {
@@ -169,7 +175,7 @@ public class DebianPackageBuilder extends Builder {
 		VersionHelper helper;
 		EnvVars env = build.getEnvironment(runner.getListener());
 		String nextVersion = env.expand(this.nextVersion).trim();
-		if (nextVersion.isEmpty()) {
+		if (!isCustomVersioning() || nextVersion.isEmpty()) {
 			helper = new VersionHelper(latestVersion);
 			runner.announce("Determined latest revision to be {0}", helper.getRevision());
 			helper.setMinorVersion(helper.getMinorVersion() + 1);
