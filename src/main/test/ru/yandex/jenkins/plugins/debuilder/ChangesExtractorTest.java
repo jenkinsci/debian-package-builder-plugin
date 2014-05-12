@@ -26,9 +26,6 @@ import static ru.yandex.jenkins.plugins.debuilder.ChangesExtractor.Change;
 
 /**
  * @author: tIGO
- *
- * Some tests are ignored because current implementation of JGitAPIImpl
- * can't parse first commit (https://issues.jenkins-ci.org/browse/JENKINS-22343)
  */
 public class ChangesExtractorTest {
 	public final PersonIdent alice = new PersonIdent("Alice", "alice@alice.com");
@@ -67,7 +64,6 @@ public class ChangesExtractorTest {
 		git.commit(msg);
 	}
 
-	@Ignore
 	@WithoutJenkins
 	@Test
 	public void testNoChangelog() throws IOException, InterruptedException {
@@ -89,7 +85,6 @@ public class ChangesExtractorTest {
 		assertThat(changes, empty());
 	}
 
-	@Ignore
 	@WithoutJenkins
 	@Test
 	public void testNoCommitsSinceLastChangelogModificationByUser() throws IOException, InterruptedException {
@@ -114,7 +109,6 @@ public class ChangesExtractorTest {
 		assertThat(changes, contains(new Change(alice.getName(), "add 2"), new Change(jenkins.getName(), "add 3")));
 	}
 
-	@Ignore
 	@WithoutJenkins
 	@Test
 	public void testSomeCommitsAfterLastChangelogModificationByUser() throws IOException, InterruptedException {
@@ -142,7 +136,6 @@ public class ChangesExtractorTest {
 		assertThat(changes, contains(new Change(alice.getName(), "add 3")));
 	}
 
-	@Ignore
 	@WithoutJenkins
 	@Test
 	public void testSeveralChangelogModificationsByUser() throws IOException, InterruptedException {
