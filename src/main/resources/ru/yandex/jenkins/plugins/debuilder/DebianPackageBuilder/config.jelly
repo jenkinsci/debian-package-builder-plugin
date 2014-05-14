@@ -2,12 +2,10 @@
   <f:entry title="Path to 'debian' catalog" field="pathToDebian">
     <f:textbox />
   </f:entry>
-  <f:optionalBlock name="customVersioning" title="Use custom versioning?" checked="${instance.customVersioning}" inline="true">
+  <f:optionalBlock name="generateChangelog" title="Generate changelog?" checked="${instance.generateChangelog}" inline="true">
     <f:entry title="Next version of package" field="nextVersion">
       <f:textbox />
     </f:entry>
-  </f:optionalBlock>
-  <f:optionalBlock name="generateChangelog" title="Generate changelog?" checked="${instance.generateChangelog}" inline="true">
     <f:entry title="Build automatically even if there are no changes in the package" field="buildEvenWhenThereAreNoChanges">
       <f:checkbox />
     </f:entry>
