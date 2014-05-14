@@ -1,6 +1,6 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
   <f:section title="Debian Package Builder">
-    <f:entry title="${%Account of GPG key}" field="accountName" value="${descriptor.accountName}">
+    <f:entry title="${%Account of GPG key}" field="accountEmail" value="${descriptor.accountEmail}">
       <f:textbox />
     </f:entry>
 

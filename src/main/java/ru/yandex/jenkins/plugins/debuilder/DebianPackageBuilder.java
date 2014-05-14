@@ -7,20 +7,12 @@ import hudson.Launcher;
 import hudson.Util;
 import hudson.model.BuildListener;
 import hudson.model.Environment;
-import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.model.Cause;
 import hudson.model.Cause.UserIdCause;
 import hudson.model.Descriptor;
 import hudson.model.Project;
-import hudson.model.Run;
-import hudson.scm.SubversionHack;
-import hudson.scm.SvnClientManager;
-import hudson.scm.ChangeLogSet;
-import hudson.scm.ChangeLogSet.Entry;
 import hudson.scm.SCM;
-import hudson.scm.SubversionSCM;
-import hudson.scm.SubversionSCM.ModuleLocation;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.DescribableList;
@@ -47,14 +39,9 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
-import org.tmatesoft.svn.core.ISVNLogEntryHandler;
-import org.tmatesoft.svn.core.SVNException;
-import org.tmatesoft.svn.core.SVNLogEntry;
-import org.tmatesoft.svn.core.SVNURL;
-import org.tmatesoft.svn.core.wc.SVNRevision;
 
-import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
-
+import static ru.yandex.jenkins.plugins.debuilder.ChangesExtractor.Change;
+import static ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
 public class DebianPackageBuilder extends Builder {
 	public static final String DEBIAN_SOURCE_PACKAGE = "DEBIAN_SOURCE_PACKAGE";
@@ -64,16 +51,33 @@ public class DebianPackageBuilder extends Builder {
 
 	// location of debian catalog relative to the workspace root
 	private final String pathToDebian;
+	private final String nextVersion;
 	private final boolean generateChangelog;
 	private final boolean buildEvenWhenThereAreNoChanges;
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
 		this.pathToDebian = pathToDebian;
+		this.nextVersion = nextVersion;
 		this.generateChangelog = generateChangelog;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
 	}
 
+	public String getPathToDebian() {
+		return pathToDebian;
+	}
+
+	public String getNextVersion() {
+		return nextVersion;
+	}
+
+	public boolean isGenerateChangelog() {
+		return generateChangelog;
+	}
+
+	public boolean isBuildEvenWhenThereAreNoChanges() {
+		return buildEvenWhenThereAreNoChanges;
+	}
 
 	@Override
 	public boolean perform(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, BuildListener listener) {
@@ -82,7 +86,7 @@ public class DebianPackageBuilder extends Builder {
 		FilePath workspace = build.getWorkspace();
 		String remoteDebian = getRemoteDebian(workspace);
 
-		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
+		Runner runner = new Runner(build, launcher, listener, PREFIX);
 
 		try {
 			runner.runCommand("sudo apt-get -y update");
@@ -97,7 +101,7 @@ public class DebianPackageBuilder extends Builder {
 			runner.announce("Determined latest version to be {0}", latestVersion);
 
 			if (generateChangelog) {
-				Pair<VersionHelper, List<Change>> changes = generateChangelog(latestVersion, runner, build, launcher, listener, remoteDebian);
+				Pair<VersionHelper, List<Change>> changes = generateChangelog(latestVersion, runner, build, remoteDebian);
 
 				if (isTriggeredAutomatically(build) && changes.getRight().isEmpty() && !buildEvenWhenThereAreNoChanges) {
 					runner.announce("There are no creditable changes for this build - not building package.");
@@ -109,7 +113,7 @@ public class DebianPackageBuilder extends Builder {
 			}
 
 			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
-			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountName(), getDescriptor().getPassphrase());
+			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());
 
 			archiveArtifacts(build, runner, latestVersion);
 
@@ -154,42 +158,28 @@ public class DebianPackageBuilder extends Builder {
 	 * @param latestVersion
 	 * @param runner
 	 * @param build
-	 * @param listener
 	 * @param remoteDebian
-	 * @param launcher
 	 * @return
 	 * @throws DebianizingException
 	 * @throws InterruptedException
 	 * @throws IOException
 	 */
 	@SuppressWarnings({ "rawtypes" })
-	private Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, Launcher launcher, BuildListener listener, String remoteDebian) throws DebianizingException, InterruptedException, IOException {
-		VersionHelper helper = new VersionHelper(latestVersion);
-
-		runner.announce("Determined latest revision to be {0}", helper.getRevision());
+	private Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, String remoteDebian) throws DebianizingException, InterruptedException, IOException {
+		VersionHelper helper;
+		EnvVars env = build.getEnvironment(runner.getListener());
+		String nextVersion = env.expand(this.nextVersion).trim();
+		if (nextVersion.isEmpty()) {
+			helper = new VersionHelper(latestVersion);
+			runner.announce("Determined latest revision to be {0}", helper.getRevision());
+			helper.setMinorVersion(helper.getMinorVersion() + 1);
+		} else {
+			helper = new VersionHelper(nextVersion);
+		}
 
 		SCM scm = build.getProject().getScm();
-
-		helper.setMinorVersion(helper.getMinorVersion() + 1);
-		String oldRevision = helper.getRevision();
-
 		String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
-
-		List<Change> changes;
-
-		if (! (scm instanceof SubversionSCM)) {
-			runner.announce("SCM in use is not Subversion (but <{0}> instead), defaulting to changes since last build", scm.getClass().getName());
-			changes = getChangesSinceLastBuild(runner, build, ourMessage);
-		} else {
-			helper.setRevision(getSVNRevision(build, (SubversionSCM) scm, runner, remoteDebian, listener));
-			if ("".equals(oldRevision)) {
-				runner.announce("No last revision known, using changes since last successful build to populate debian/changelog");
-				changes = getChangesSinceLastBuild(runner, build, ourMessage);
-			} else {
-				runner.announce("Calculating changes since revision {0}.", oldRevision);
-				changes = getChangesFromSubversion(runner, (SubversionSCM) scm, build, remoteDebian, oldRevision, helper.getRevision(), ourMessage);
-			}
-		}
+		List<Change> changes = ChangesExtractor.getChanges(build, runner, scm, remoteDebian, ourMessage, helper);
 
 		return new ImmutablePair<VersionHelper, List<Change>>(helper, changes);
 	}
@@ -257,132 +247,18 @@ public class DebianPackageBuilder extends Builder {
 
 	}
 
-	private String getSVNRevision(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner, String remoteDebian, TaskListener listener) throws DebianizingException {
-		ModuleLocation location = findOurLocation(build, scm, runner, remoteDebian);
-		try {
-			Map<String, Long> revisionsForBuild = SubversionHack.getRevisionsForBuild(scm, build);
-
-			return Long.toString(revisionsForBuild.get(location.getSVNURL().toString()));
-		} catch (IOException e) {
-			throw new DebianizingException("IOException: " + e.getMessage(), e);
-		} catch (SVNException e) {
-			throw new DebianizingException("SVNException: " + e.getMessage(), e);
-		} catch (InterruptedException e) {
-			throw new DebianizingException("InterruptedException: " + e.getMessage(), e);
-		} catch (IllegalArgumentException e) {
-			throw new DebianizingException("IllegalArgumentException: " + e.getMessage(), e);
-		} catch (IllegalAccessException e) {
-			throw new DebianizingException("IllegalAccessException: " + e.getMessage(), e);
-		}
-	}
-
-	private ModuleLocation findOurLocation(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner, String remoteDebian) throws DebianizingException {
-		for (ModuleLocation location: scm.getLocations()) {
-			String moduleDir;
-			try {
-				ModuleLocation expandedLocation = location.getExpandedLocation(build.getEnvironment(runner.getListener()));
-				moduleDir = expandedLocation.getLocalDir();
-
-				if (remoteDebian.startsWith(build.getWorkspace().child(moduleDir).getRemote())) {
-					return expandedLocation;
-				}
-			} catch (IOException e) {
-				throw new DebianizingException("IOException: " + e.getMessage(), e);
-			} catch (InterruptedException e) {
-				throw new DebianizingException("InterruptedException: " + e.getMessage(), e);
-			}
-		}
-
-		throw new DebianizingException("Can't find module location for remoteDebian " + remoteDebian);
-	}
-
-	private List<Change> getChangesFromSubversion(final Runner runner, SubversionSCM scm, @SuppressWarnings("rawtypes") AbstractBuild build, final String remoteDebian, String latestRevision, String currentRevision, final String ourMessage) throws DebianizingException {
-		final List<Change> result = new ArrayList<DebianPackageBuilder.Change>();
-
-		SvnClientManager manager = SubversionSCM.createClientManager(build.getProject());
-		try {
-			ModuleLocation location = findOurLocation(build, scm, runner, remoteDebian);
-
-			try {
-				SVNURL svnurl = location.getSVNURL();
-				manager.getLogClient().doLog(svnurl, null, SVNRevision.UNDEFINED, SVNRevision.create(Long.parseLong(latestRevision) + 1), SVNRevision.parse(currentRevision), false, true, 0, new ISVNLogEntryHandler() {
-
-					@Override
-					public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-						if (!logEntry.getMessage().equals(ourMessage)) {
-							result.add(new Change(logEntry.getAuthor(), logEntry.getMessage()));
-						}
-					}
-				});
-			} catch (SVNException e) {
-				throw new DebianizingException("SVNException: " + e.getMessage(), e);
-			}
-		} finally {
-			manager.dispose();
-		}
-
-		return result;
-	}
-
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private List<Change> getChangesSinceLastBuild(Runner runner, AbstractBuild build, String ourMessage) throws InterruptedException, DebianizingException {
-		List<Change> result = new ArrayList<DebianPackageBuilder.Change>();
-		Run lastSuccessfulBuild = build.getProject().getLastSuccessfulBuild();
-
-		int lastSuccessNumber = lastSuccessfulBuild == null ? 0 : lastSuccessfulBuild.number;
-
-		for (int num = lastSuccessNumber + 1; num <= build.number; num ++) {
-			AbstractBuild run = (AbstractBuild) build.getProject().getBuildByNumber(num);
-
-			if (run == null) {
-				continue;
-			}
-
-			ChangeLogSet<? extends Entry> changeSet = run.getChangeSet();
-
-			for (Entry entry : changeSet) {
-				if (!entry.getMsg().equals(ourMessage)) {
-					result.add(new Change(entry.getAuthor().getFullName(), entry.getMsg()));
-				}
-			}
-		}
-
-		return result;
-	}
-
-	/**
-	 * Pojo to store change
-	 *
-	 * @author pupssman
-	 */
-	private static final class Change {
-		private final String author;
-		private final String message;
-
-		public Change(String author, String message) {
-			this.author = author;
-			this.message = message;}
-
-		public String getAuthor() {
-			return author;
-		}
-		public String getMessage() {
-			return message;
-		}
-	}
-
 	private String clearMessage(String message) {
 		return message.replaceAll("\\'", "");
 	}
 
 	private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --distributor debian --append ''{3}''", getDescriptor().getAccountName(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 --distributor debian --append ''{3}''", getDescriptor().getAccountEmail(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
 	}
 
 	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message) throws InterruptedException, DebianizingException {
 		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --distributor debian --newVersion {3} ''{4}''", getDescriptor().getAccountName(), "Jenkins", remoteDebian, helper, clearMessage(message));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME={1} && cd ''{2}'' && dch --check-dirname-level 0 -b --distributor debian --newVersion {3} ''{4}''", getDescriptor().getAccountEmail(), getDescriptor().getAccountName(), remoteDebian, helper, clearMessage(message));
 	}
 
 	/**
@@ -405,25 +281,17 @@ public class DebianPackageBuilder extends Builder {
 
 	private void importKeys(FilePath workspace, Runner runner)
 			throws InterruptedException, DebianizingException, IOException {
-		if (!runner.runCommandForResult("gpg --list-key {0}", getDescriptor().getAccountName())) {
+		if (!runner.runCommandForResult("gpg --list-key {0}", getDescriptor().getAccountEmail())) {
 			FilePath publicKey = workspace.createTextTempFile("public", "key", getDescriptor().getPublicKey());
 			runner.runCommand("gpg --import ''{0}''", publicKey.getRemote());
 			publicKey.delete();
 		}
 
-		if (!runner.runCommandForResult("gpg --list-secret-key {0}", getDescriptor().getAccountName())) {
+		if (!runner.runCommandForResult("gpg --list-secret-key {0}", getDescriptor().getAccountEmail())) {
 			FilePath privateKey = workspace.createTextTempFile("private", "key", getDescriptor().getPrivateKey());
 			runner.runCommand("gpg --import ''{0}''", privateKey.getRemote());
 			privateKey.delete();
 		}
-	}
-
-	public boolean isGenerateChangelog() {
-		return generateChangelog;
-	}
-
-	public String getPathToDebian() {
-		return pathToDebian;
 	}
 
 	@Override
@@ -437,6 +305,7 @@ public class DebianPackageBuilder extends Builder {
 		private String publicKey;
 		private String privateKey;
 		private String accountName;
+		private String accountEmail;
 		private String passphrase;
 
 		public DescriptorImpl() {
@@ -461,7 +330,8 @@ public class DebianPackageBuilder extends Builder {
 		public boolean configure(StaplerRequest staplerRequest, JSONObject json) throws FormException {
 			setPrivateKey(json.getString("privateKey"));
 			setPublicKey(json.getString("publicKey"));
-			setAccountName(json.getString("accountName"));
+			setAccountName("Jenkins");
+			setAccountEmail(json.getString("accountEmail"));
 			setPassphrase(json.getString("passphrase"));
 
 			save();
@@ -486,6 +356,14 @@ public class DebianPackageBuilder extends Builder {
 
 		public void setAccountName(String accountName) {
 			this.accountName = accountName;
+		}
+
+		public String getAccountEmail() {
+			return accountEmail;
+		}
+
+		public void setAccountEmail(String accountEmail) {
+			this.accountEmail = accountEmail;
 		}
 
 		public String getPassphrase() {
@@ -531,10 +409,6 @@ public class DebianPackageBuilder extends Builder {
 		}
 
 		return result;
-	}
-
-	public boolean isBuildEvenWhenThereAreNoChanges() {
-		return buildEvenWhenThereAreNoChanges;
 	}
 
 }
