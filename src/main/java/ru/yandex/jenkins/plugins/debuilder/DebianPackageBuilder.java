@@ -168,8 +168,9 @@ public class DebianPackageBuilder extends Builder {
 	private Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, String remoteDebian) throws DebianizingException, InterruptedException, IOException {
 		VersionHelper helper;
 		EnvVars env = build.getEnvironment(runner.getListener());
-		String nextVersion = env.expand(this.nextVersion).trim();
-		if (nextVersion.isEmpty()) {
+		String nextVersion = env.expand(this.nextVersion);
+
+		if (nextVersion == null || nextVersion.trim().isEmpty()) {
 			helper = new VersionHelper(latestVersion);
 			runner.announce("Determined latest revision to be {0}", helper.getRevision());
 			helper.setMinorVersion(helper.getMinorVersion() + 1);
