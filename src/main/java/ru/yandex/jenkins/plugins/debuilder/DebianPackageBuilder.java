@@ -53,13 +53,15 @@ public class DebianPackageBuilder extends Builder {
 	private final String pathToDebian;
 	private final String nextVersion;
 	private final boolean generateChangelog;
+	private final boolean signPackage;
 	private final boolean buildEvenWhenThereAreNoChanges;
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges) {
 		this.pathToDebian = pathToDebian;
 		this.nextVersion = nextVersion;
 		this.generateChangelog = generateChangelog;
+		this.signPackage = signPackage;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
 	}
 
@@ -73,6 +75,10 @@ public class DebianPackageBuilder extends Builder {
 
 	public boolean isGenerateChangelog() {
 		return generateChangelog;
+	}
+
+	public boolean isSignPackage() {
+		return signPackage;
 	}
 
 	public boolean isBuildEvenWhenThereAreNoChanges() {
@@ -113,7 +119,15 @@ public class DebianPackageBuilder extends Builder {
 			}
 
 			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
-			runner.runCommand("cd ''{0}'' && debuild --check-dirname-level 0 --no-tgz-check -k{1} -p''gpg --no-tty --passphrase {2}''", remoteDebian, getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());
+			String package_command = String.format("cd ''%1$s'' && debuild --check-dirname-level 0 --no-tgz-check ", remoteDebian);
+			if (signPackage) {
+				package_command += String.format("-k%1$s -p''gpg --no-tty --passphrase %2$s''", getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());
+			}
+			else
+			{
+				package_command += "-us -uc";
+			}
+			runner.runCommand(package_command);
 
 			archiveArtifacts(build, runner, latestVersion);
 
