@@ -26,6 +26,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -96,7 +99,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return remoteKey.getRemote();
 	}
 
-	private void generateDuploadConf(String filePath, AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
+	private void generateDuploadConf(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
 		String confTemplate =
 				"package config;\n\n" +
 				"$default_host = '${name}';\n\n" +
@@ -128,7 +131,15 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
-		runner.runCommand("sudo mv ''{0}'' ''{1}''", duploadConf.getRemote(), filePath);
+		if (Files.exists(Paths.get(System.getProperty("user.home")))) {
+			Path duploadConfPath = Paths.get(System.getProperty("user.home"), ".dupload.conf");
+			runner.announce("User has home dir. Save dupload at ''{0}''", duploadConfPath);
+			runner.runCommand("mv ''{0}'' ''{1}''", duploadConf.getRemote(), duploadConfPath.toString());
+		} else {
+			Path duploadConfPath = Paths.get("/etc", ".dupload.conf");
+			runner.announce("User doesn't have home dir. Save dupload at ''{0}''", duploadConfPath);
+			runner.runCommand("sudo mv ''{0}'' ''{1}''", duploadConf.getRemote(), duploadConfPath.toString());
+		}
 	}
 
 	@Override
@@ -146,11 +157,10 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
-		String duploadConfPath = "/etc/dupload.conf";
 
 		try {
 			runner.runCommand("sudo apt-get -y install dupload devscripts");
-			generateDuploadConf(duploadConfPath, build, runner);
+			generateDuploadConf(build, runner);
 
 			List<String> builtModules = new ArrayList<String>();
 
