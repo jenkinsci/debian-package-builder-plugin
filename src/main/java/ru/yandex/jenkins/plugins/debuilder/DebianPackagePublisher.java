@@ -131,8 +131,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
+		// Check if user home dir exists
 		String moveDupload =
-				"if [ -e $HOME ]; then\n" +
+				"if [ -e $(awk -F\":\" '{if ($1==ENVIRON[\"USER\"]) print $6;}' /etc/passwd) ]; then\n" +
 				"\tmv ''{0}'' \"$HOME/.dupload.conf\"\n" +
 				"else\n" +
 				"\tsudo mv ''{0}'' /etc/dupload.conf\n" +
