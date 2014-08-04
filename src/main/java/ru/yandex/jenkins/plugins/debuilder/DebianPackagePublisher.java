@@ -131,15 +131,14 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
-		if (Files.exists(Paths.get(System.getProperty("user.home")))) {
-			Path duploadConfPath = Paths.get(System.getProperty("user.home"), ".dupload.conf");
-			runner.announce("User has home dir. Save dupload at ''{0}''", duploadConfPath);
-			runner.runCommand("mv ''{0}'' ''{1}''", duploadConf.getRemote(), duploadConfPath.toString());
-		} else {
-			Path duploadConfPath = Paths.get("/etc", ".dupload.conf");
-			runner.announce("User doesn't have home dir. Save dupload at ''{0}''", duploadConfPath);
-			runner.runCommand("sudo mv ''{0}'' ''{1}''", duploadConf.getRemote(), duploadConfPath.toString());
-		}
+		String moveDupload =
+				"if [ -e $HOME ]; then\n" +
+				"\tmv ''{0}'' \"$HOME/.dupload.conf\"\n" +
+				"else\n" +
+				"\tsudo mv ''{0}'' /etc/dupload.conf\n" +
+				"fi";
+
+		runner.runCommand(moveDupload, duploadConf.getRemote());
 	}
 
 	@Override
