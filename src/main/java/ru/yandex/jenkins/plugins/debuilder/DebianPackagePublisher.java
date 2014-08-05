@@ -26,9 +26,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.Serializable;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -133,7 +130,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 		// Check if user home dir exists
 		String moveDupload =
-				"if [ -e $(awk -F'':'' ''{if ($1==ENVIRON[\"USER\"]) print $6;}'' /etc/passwd) ]; then\n" +
+				"if [ -e $HOME ]; then\n" +
 				"\tmv ''{0}'' \"$HOME/.dupload.conf\"\n" +
 				"else\n" +
 				"\tsudo mv ''{0}'' /etc/dupload.conf\n" +
