@@ -18,6 +18,9 @@
              description="Build automatically even if there are no changes in the package">
       <f:checkbox />
     </f:entry>
+    <f:entry title="Use SCM to generate changelog" field="useSCM">
+      <f:checkbox checked="${instance.useSCM}" default="true"/>
+    </f:entry>
   </f:optionalBlock>
   <f:entry title="GPG sign package?"
            field="signPackage">
