@@ -96,7 +96,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return remoteKey.getRemote();
 	}
 
-	private void generateDuploadConf(String filePath, AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
+	private void generateDuploadConf(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
 		String confTemplate =
 				"package config;\n\n" +
 				"$default_host = '${name}';\n\n" +
@@ -128,7 +128,15 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
-		runner.runCommand("sudo mv ''{0}'' ''{1}''", duploadConf.getRemote(), filePath);
+		// dupload reads configuration from system-wide settings in /etc/dupload.conf and overrides it by ~/.dupload.conf if the latter exists.
+		String moveDupload =
+				"if [ -e $HOME ]; then\n" +
+				"\tmv ''{0}'' \"$HOME/.dupload.conf\"\n" +
+				"else\n" +
+				"\tsudo mv ''{0}'' /etc/dupload.conf\n" +
+				"fi";
+
+		runner.runCommand(moveDupload, duploadConf.getRemote());
 	}
 
 	@Override
@@ -146,11 +154,10 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
-		String duploadConfPath = "/etc/dupload.conf";
 
 		try {
 			runner.runCommand("sudo apt-get -y install dupload devscripts");
-			generateDuploadConf(duploadConfPath, build, runner);
+			generateDuploadConf(build, runner);
 
 			List<String> builtModules = new ArrayList<String>();
 
