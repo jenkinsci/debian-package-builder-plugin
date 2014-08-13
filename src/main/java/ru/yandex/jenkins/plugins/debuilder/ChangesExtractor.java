@@ -1,5 +1,6 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
+import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
@@ -130,7 +131,8 @@ public class ChangesExtractor {
 	 */
 	static List<Change> getChangesFromGit(AbstractBuild build, BuildListener listener, GitSCM scm, String remoteDebian) throws DebianizingException {
 		try {
-			GitClient cli = scm.createClient(listener, null, build);
+			EnvVars environment = build.getEnvironment(listener);
+			GitClient cli = scm.createClient(listener, environment, build);
 			FilePath workspace = build.getWorkspace();
 			DescriptorImpl descriptor = (DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class);
 			PersonIdent account = new PersonIdent(descriptor.getAccountName(), descriptor.getAccountEmail());
