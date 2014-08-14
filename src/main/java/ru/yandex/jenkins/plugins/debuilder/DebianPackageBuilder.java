@@ -104,6 +104,7 @@ public class DebianPackageBuilder extends Builder {
 
 			String source = changelog.get("Source");
 			String latestVersion = changelog.get("Version");
+			String distribution = changelog.get("Distribution");
 			runner.announce("Determined latest version to be {0}", latestVersion);
 
 			if (generateChangelog) {
@@ -115,7 +116,7 @@ public class DebianPackageBuilder extends Builder {
 				}
 
 				latestVersion = changes.getLeft().toString();
-				writeChangelog(build, listener, remoteDebian, runner, changes, changelog);
+				writeChangelog(build, listener, remoteDebian, runner, changes, distribution);
 			}
 
 			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
@@ -213,10 +214,9 @@ public class DebianPackageBuilder extends Builder {
 	 * @throws DebianizingException
 	 */
 	@SuppressWarnings("rawtypes")
-	private void writeChangelog(AbstractBuild build, BuildListener listener, String remoteDebian, Runner runner, Pair<VersionHelper, List<Change>> changes, Map<String, String> previousChangelog) throws IOException,
+	private void writeChangelog(AbstractBuild build, BuildListener listener, String remoteDebian, Runner runner, Pair<VersionHelper, List<Change>> changes, String distribution) throws IOException,
 			InterruptedException, DebianizingException {
 
-		String distribution = previousChangelog.get("Distribution");
 		String versionMessage = getCausedMessage(build);
 
 		String newVersionMessage = Util.replaceMacro(versionMessage, new VariableResolver.ByMap<String>(build.getEnvironment(listener)));
