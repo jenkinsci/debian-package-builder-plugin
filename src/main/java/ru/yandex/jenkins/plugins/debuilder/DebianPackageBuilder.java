@@ -115,7 +115,7 @@ public class DebianPackageBuilder extends Builder {
 				}
 
 				latestVersion = changes.getLeft().toString();
-				writeChangelog(build, listener, remoteDebian, runner, changes);
+				writeChangelog(build, listener, remoteDebian, runner, changes, changelog);
 			}
 
 			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
@@ -207,21 +207,23 @@ public class DebianPackageBuilder extends Builder {
 	 * @param remoteDebian
 	 * @param runner
 	 * @param changes
+	 * @param previousChangelog
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DebianizingException
 	 */
 	@SuppressWarnings("rawtypes")
-	private void writeChangelog(AbstractBuild build, BuildListener listener, String remoteDebian, Runner runner, Pair<VersionHelper, List<Change>> changes) throws IOException,
+	private void writeChangelog(AbstractBuild build, BuildListener listener, String remoteDebian, Runner runner, Pair<VersionHelper, List<Change>> changes, Map<String, String> previousChangelog) throws IOException,
 			InterruptedException, DebianizingException {
 
+		String distribution = previousChangelog.get("Distribution");
 		String versionMessage = getCausedMessage(build);
 
 		String newVersionMessage = Util.replaceMacro(versionMessage, new VariableResolver.ByMap<String>(build.getEnvironment(listener)));
-		startVersion(runner, remoteDebian, changes.getLeft(), newVersionMessage);
+		startVersion(runner, remoteDebian, changes.getLeft(), newVersionMessage, distribution);
 
 		for (Change change: changes.getRight()) {
-			addChange(runner, remoteDebian, change);
+			addChange(runner, remoteDebian, change, distribution);
 		}
 	}
 
@@ -266,14 +268,14 @@ public class DebianPackageBuilder extends Builder {
 		return message.replaceAll("\\'", "");
 	}
 
-	private void addChange(Runner runner, String remoteDebian, Change change) throws InterruptedException, DebianizingException {
+	private void addChange(Runner runner, String remoteDebian, Change change, String distribution) throws InterruptedException, DebianizingException {
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --append ''{3}''", getDescriptor().getAccountEmail(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --append ''{3}'' --distribution ''{4}''", getDescriptor().getAccountEmail(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()), distribution);
 	}
 
-	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message) throws InterruptedException, DebianizingException {
+	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message, String distribution) throws InterruptedException, DebianizingException {
 		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b --newVersion {3} ''{4}''", getDescriptor().getAccountEmail(), getDescriptor().getAccountName(), remoteDebian, helper, clearMessage(message));
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b --newVersion {3} ''{4}'' --distribution ''{5}''", getDescriptor().getAccountEmail(), getDescriptor().getAccountName(), remoteDebian, helper, clearMessage(message), distribution);
 	}
 
 	/**
