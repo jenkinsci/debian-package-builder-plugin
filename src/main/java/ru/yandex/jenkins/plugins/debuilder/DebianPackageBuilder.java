@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.lang.NumberFormatException;
 
 import jedi.functional.FunctionalPrimitives;
 import jedi.functional.Functor;
@@ -52,14 +53,16 @@ public class DebianPackageBuilder extends Builder {
 	// location of debian catalog relative to the workspace root
 	private final String pathToDebian;
 	private final String nextVersion;
+	private final String appendVersion;
 	private final boolean generateChangelog;
 	private final boolean signPackage;
 	private final boolean buildEvenWhenThereAreNoChanges;
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, String nextVersion, String appendVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges) {
 		this.pathToDebian = pathToDebian;
 		this.nextVersion = nextVersion;
+		this.appendVersion = appendVersion;
 		this.generateChangelog = generateChangelog;
 		this.signPackage = signPackage;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
@@ -71,6 +74,10 @@ public class DebianPackageBuilder extends Builder {
 
 	public String getNextVersion() {
 		return nextVersion;
+	}
+
+	public String getAppendVersion() {
+		return appendVersion;
 	}
 
 	public boolean isGenerateChangelog() {
@@ -184,13 +191,23 @@ public class DebianPackageBuilder extends Builder {
 		VersionHelper helper;
 		EnvVars env = build.getEnvironment(runner.getListener());
 		String nextVersion = env.expand(this.nextVersion);
+		String appendVersion = env.expand(this.appendVersion);
 
 		if (nextVersion == null || nextVersion.trim().isEmpty()) {
 			helper = new VersionHelper(latestVersion);
-			runner.announce("Determined latest revision to be {0}", helper.getRevision());
-			helper.setMinorVersion(helper.getMinorVersion() + 1);
+			runner.announce("Determined latest revision to be {0}", latestVersion);
+			try {
+				int d = Integer.parseInt(helper.getDebianRevision());
+				helper.setDebianRevision(Integer.toString(d + 1));
+			} catch (NumberFormatException e) {
+				//pass
+			}
 		} else {
 			helper = new VersionHelper(nextVersion);
+		}
+
+		if (appendVersion != null || !appendVersion.trim().isEmpty()) {
+			helper.setDebianRevision(helper.getDebianRevision()+appendVersion);
 		}
 
 		SCM scm = build.getProject().getScm();

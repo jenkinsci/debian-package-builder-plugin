@@ -6,6 +6,11 @@
     <f:entry title="Next version of package" field="nextVersion">
       <f:textbox />
     </f:entry>
+    <f:entry title="Append to version"
+             field="appendVersion"
+             description="String to be append to your version">
+      <f:textbox />
+    </f:entry>
     <f:entry title="Build automatically even if there are no changes in the package" field="buildEvenWhenThereAreNoChanges">
       <f:checkbox />
     </f:entry>
