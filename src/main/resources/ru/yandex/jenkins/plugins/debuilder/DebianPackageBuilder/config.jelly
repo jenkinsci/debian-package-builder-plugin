@@ -13,6 +13,11 @@
              description="If set, your package will be built with this version.">
       <f:textbox />
     </f:entry>
+    <f:entry title="Append to version"
+             field="appendVersion"
+             description="String to be append to your version">
+      <f:textbox />
+    </f:entry>
     <f:entry title="Always Build"
              field="buildEvenWhenThereAreNoChanges"
              description="Build automatically even if there are no changes in the package">
