@@ -1,16 +1,26 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-  <f:entry title="Path to 'debian' catalog" field="pathToDebian">
+  <f:entry title="Path to 'debian' catalog"
+           field="pathToDebian"
+           description="Path to 'debian' folder, containing .deb metadata, relative to the workspace root.">
     <f:textbox />
   </f:entry>
-  <f:optionalBlock name="generateChangelog" title="Generate changelog?" checked="${instance.generateChangelog}" inline="true">
-    <f:entry title="Next version of package" field="nextVersion">
+  <f:optionalBlock title="Generate changelog?"
+                   name="generateChangelog"
+                   checked="${instance.generateChangelog}"
+                   inline="true">
+    <f:entry title="Next version of package"
+             field="nextVersion"
+             description="If set, your package will be built with this version.">
       <f:textbox />
     </f:entry>
-    <f:entry title="Build automatically even if there are no changes in the package" field="buildEvenWhenThereAreNoChanges">
+    <f:entry title="Always Build"
+             field="buildEvenWhenThereAreNoChanges"
+             description="Build automatically even if there are no changes in the package">
       <f:checkbox />
     </f:entry>
   </f:optionalBlock>
-  <f:entry title="GPG sign package?" field="signPackage">
+  <f:entry title="GPG sign package?"
+           field="signPackage">
     <f:checkbox checked="${instance.signPackage}" default="true"/>
   </f:entry>
 </j:jelly>
