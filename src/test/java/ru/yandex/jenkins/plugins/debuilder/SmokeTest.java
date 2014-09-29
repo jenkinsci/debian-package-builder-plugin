@@ -1,6 +1,8 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import hudson.Launcher;
@@ -10,12 +12,15 @@ import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Result;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.mockito.Mockito;
 
 import static org.mockito.Mockito.*;
+import ru.yandex.jenkins.plugins.debuilder.ChangesExtractor.Change;
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 import ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.DescriptorImpl;
 
@@ -64,6 +69,36 @@ public class SmokeTest {
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
 		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
 		verify(runner).runCommand(contains("dch --check-dirname-level 0 -b --newVersion"), anyVararg());
+		verifyIrrelevantAndBuild(runner);
+		verifyNoMoreInteractions(runner);
+	}
+
+
+	/**
+	 * This test smokey-checks that the {@link DebianPackageBuilder} calls proper shell commands
+	 * when building package with changelog.
+	 * Use forced ``nextVersion`` to ease the code.
+	 * Check how the new version message is added
+	 * @throws Exception
+	 */
+	@Test
+	public void smokeWithChangesetVersion() throws Exception {
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true));
+
+		mockTestDescriptor(builder);
+		Runner runner = mockBasicRunner(builder);
+
+		Pair<VersionHelper, List<Change>> changes = new ImmutablePair<VersionHelper, List<Change>>(new VersionHelper("1.0"), Arrays.asList(new Change[] {new Change("ololo", "pewpew")}));
+
+		doReturn(changes).when(builder).generateChangelog(anyString(), any(Runner.class), any(AbstractBuild.class), anyString());
+
+		fire(builder);
+
+		verifyInstallAndKeyImport(runner);
+		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
+		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
+		verify(runner).runCommand(contains("dch --check-dirname-level 0 -b --newVersion"), anyVararg());
+		verify(runner).runCommand(contains("dch --check-dirname-level 0 --append"), anyVararg());
 		verifyIrrelevantAndBuild(runner);
 		verifyNoMoreInteractions(runner);
 	}
