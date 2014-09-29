@@ -68,7 +68,7 @@ public class SmokeTest {
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
 		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
-		verify(runner).runCommand(contains("dch --check-dirname-level 0 -b --newVersion"), anyVararg());
+		verify(runner).runCommand(contains("dch"), anyVararg());
 		verifyIrrelevantAndBuild(runner);
 		verifyNoMoreInteractions(runner);
 	}
@@ -97,8 +97,14 @@ public class SmokeTest {
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
 		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
-		verify(runner).runCommand(contains("dch --check-dirname-level 0 -b --newVersion"), anyVararg());
-		verify(runner).runCommand(contains("dch --check-dirname-level 0 --append"), anyVararg());
+		verify(runner).runCommand(contains("dch --check-dirname-level 0 -b --distribution ''{5}'' --newVersion {3} -- ''{4}''"), anyVararg());
+		verify(runner).runCommand(contains("dch --check-dirname-level 0 --distribution ''{4}'' --append -- ''{3}''"),
+											any(),
+											any(),
+											any(),
+											eq("pewpew"),  // the version message
+											any()
+											);
 		verifyIrrelevantAndBuild(runner);
 		verifyNoMoreInteractions(runner);
 	}
