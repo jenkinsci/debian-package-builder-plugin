@@ -1,9 +1,14 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
+import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.Result;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -25,15 +30,38 @@ public class SmokeTest {
 	 */
 	@Test
 	public void smokeWithoutChangelog() throws Exception {
-		FreeStyleProject project = j.createFreeStyleProject();
-
 		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "", false, false, true));
 
 		mockTestDescriptor(builder);
 		Runner runner = mockBasicRunner(builder);
 
-		project.getBuildersList().add(builder);
-		project.scheduleBuild2(0).get();
+		fire(builder);
+
+		verifyInstallAndKeyImport(runner);
+		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
+		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
+		verify(runner, atLeast(0)).announce(anyString());
+		verify(runner, atLeast(0)).announce(anyString(), anyVararg());
+		verify(runner).runCommand(contains("debuild"));
+		verifyNoMoreInteractions(runner);
+
+	}
+
+
+	/**
+	 * This test smokey-checks that the {@link DebianPackageBuilder} calls proper shell commands
+	 * when building package with changelog
+	 *
+	 * @throws Exception
+	 */
+	@Test
+	public void smokeWithChangelog() throws Exception {
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "", true, false, true));
+
+		mockTestDescriptor(builder);
+		Runner runner = mockBasicRunner(builder);
+
+		fire(builder);
 
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
@@ -43,6 +71,26 @@ public class SmokeTest {
 		verify(runner).runCommand(contains("debuild"));
 		verifyNoMoreInteractions(runner);
 	}
+
+
+	/**
+	 * Build this ``builder`` in a basic project and check that build results in success
+	 *
+	 * @param builder
+	 * @throws IOException
+	 * @throws InterruptedException
+	 * @throws ExecutionException
+	 */
+	private void fire(DebianPackageBuilder builder) throws IOException, InterruptedException, ExecutionException {
+		FreeStyleProject project = j.createFreeStyleProject();
+		project.getBuildersList().add(builder);
+		FreeStyleBuild build = project.scheduleBuild2(0).get();
+
+		assert build.getResult() == Result.SUCCESS;
+	}
+
+
+
 
 	private Runner mockBasicRunner(DebianPackageBuilder builder) throws InterruptedException, DebianizingException {
 		Runner runner = mock(Runner.class);
