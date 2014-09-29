@@ -92,7 +92,7 @@ public class DebianPackageBuilder extends Builder {
 		FilePath workspace = build.getWorkspace();
 		String remoteDebian = getRemoteDebian(workspace);
 
-		Runner runner = new Runner(build, launcher, listener, PREFIX);
+		Runner runner = makeRunner(build, launcher, listener);
 
 		try {
 			runner.runCommand("sudo apt-get -y update");
@@ -147,6 +147,11 @@ public class DebianPackageBuilder extends Builder {
 		}
 
 		return true;
+	}
+
+	@SuppressWarnings("rawtypes") Runner makeRunner(AbstractBuild build, Launcher launcher, BuildListener listener) {
+		Runner runner = new Runner(build, launcher, listener, PREFIX);
+		return runner;
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -281,7 +286,7 @@ public class DebianPackageBuilder extends Builder {
 	/**
 	 * FIXME Doesn't work with multi-line entries
 	 */
-	private Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
+	Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
 		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
 		Map<String, String> changelog = new HashMap<String, String>();
 		Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
