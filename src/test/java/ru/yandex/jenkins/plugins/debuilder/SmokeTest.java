@@ -66,7 +66,7 @@ public class SmokeTest {
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
 		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
-		verify(runner).runCommand(contains("dch"), anyVararg());
+		verify(runner).runCommand(contains("dch --check-dirname-level 0 -b --newVersion"), anyVararg());
 		verify(runner, atLeast(0)).announce(anyString());
 		verify(runner, atLeast(0)).getListener();
 		verify(runner, atLeast(0)).announce(anyString(), anyVararg());
