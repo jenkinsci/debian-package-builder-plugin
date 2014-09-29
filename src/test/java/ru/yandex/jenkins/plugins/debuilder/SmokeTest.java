@@ -40,11 +40,8 @@ public class SmokeTest {
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
 		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
-		verify(runner, atLeast(0)).announce(anyString());
-		verify(runner, atLeast(0)).announce(anyString(), anyVararg());
-		verify(runner).runCommand(contains("debuild"));
+		verifyIrrelevantAndBuild(runner);
 		verifyNoMoreInteractions(runner);
-
 	}
 
 
@@ -55,7 +52,7 @@ public class SmokeTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void smokeWithChangelog() throws Exception {
+	public void smokeWithNewVersion() throws Exception {
 		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true));
 
 		mockTestDescriptor(builder);
@@ -67,11 +64,23 @@ public class SmokeTest {
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
 		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
 		verify(runner).runCommand(contains("dch --check-dirname-level 0 -b --newVersion"), anyVararg());
+		verifyIrrelevantAndBuild(runner);
+		verifyNoMoreInteractions(runner);
+	}
+
+
+
+	/**
+	 * Verify that actual ``debuild`` is called alongside not that interesting operations.
+	 * @param runner
+	 * @throws InterruptedException
+	 * @throws DebianizingException
+	 */
+	private void verifyIrrelevantAndBuild(Runner runner) throws InterruptedException, DebianizingException {
 		verify(runner, atLeast(0)).announce(anyString());
 		verify(runner, atLeast(0)).getListener();
 		verify(runner, atLeast(0)).announce(anyString(), anyVararg());
 		verify(runner).runCommand(contains("debuild"));
-		verifyNoMoreInteractions(runner);
 	}
 
 
