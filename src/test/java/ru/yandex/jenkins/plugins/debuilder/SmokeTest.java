@@ -50,13 +50,13 @@ public class SmokeTest {
 
 	/**
 	 * This test smokey-checks that the {@link DebianPackageBuilder} calls proper shell commands
-	 * when building package with changelog
-	 *
+	 * when building package with changelog.
+	 * Use forced ``nextVersion`` to ease the code.
 	 * @throws Exception
 	 */
 	@Test
 	public void smokeWithChangelog() throws Exception {
-		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "", true, false, true));
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true));
 
 		mockTestDescriptor(builder);
 		Runner runner = mockBasicRunner(builder);
@@ -66,7 +66,9 @@ public class SmokeTest {
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
 		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
+		verify(runner).runCommand(contains("dch"), anyVararg());
 		verify(runner, atLeast(0)).announce(anyString());
+		verify(runner, atLeast(0)).getListener();
 		verify(runner, atLeast(0)).announce(anyString(), anyVararg());
 		verify(runner).runCommand(contains("debuild"));
 		verifyNoMoreInteractions(runner);
