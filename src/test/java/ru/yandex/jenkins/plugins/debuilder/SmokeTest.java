@@ -136,7 +136,7 @@ public class SmokeTest {
 	private void fire(DebianPackageBuilder builder) throws IOException, InterruptedException, ExecutionException {
 		FreeStyleProject project = j.createFreeStyleProject();
 		project.getBuildersList().add(builder);
-		sproject.scheduleBuild2(0).get();
+		project.scheduleBuild2(0).get();
 	}
 
 
