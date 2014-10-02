@@ -92,7 +92,7 @@ public class DebianPackageBuilder extends Builder {
 		FilePath workspace = build.getWorkspace();
 		String remoteDebian = getRemoteDebian(workspace);
 
-		Runner runner = new Runner(build, launcher, listener, PREFIX);
+		Runner runner = makeRunner(build, launcher, listener);
 
 		try {
 			runner.runCommand("sudo apt-get -y update");
@@ -149,6 +149,11 @@ public class DebianPackageBuilder extends Builder {
 		return true;
 	}
 
+	@SuppressWarnings("rawtypes") Runner makeRunner(AbstractBuild build, Launcher launcher, BuildListener listener) {
+		Runner runner = new Runner(build, launcher, listener, PREFIX);
+		return runner;
+	}
+
 	@SuppressWarnings("rawtypes")
 	private void archiveArtifacts(AbstractBuild build, Runner runner, String latestVersion) throws IOException, InterruptedException {
 		FilePath path = build.getWorkspace().child(pathToDebian).child("..");
@@ -179,8 +184,7 @@ public class DebianPackageBuilder extends Builder {
 	 * @throws InterruptedException
 	 * @throws IOException
 	 */
-	@SuppressWarnings({ "rawtypes" })
-	private Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, String remoteDebian) throws DebianizingException, InterruptedException, IOException {
+	@SuppressWarnings({ "rawtypes" }) Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, String remoteDebian) throws DebianizingException, InterruptedException, IOException {
 		VersionHelper helper;
 		EnvVars env = build.getEnvironment(runner.getListener());
 		String nextVersion = env.expand(this.nextVersion);
@@ -270,18 +274,18 @@ public class DebianPackageBuilder extends Builder {
 
 	private void addChange(Runner runner, String remoteDebian, Change change, String distribution) throws InterruptedException, DebianizingException {
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --append ''{3}'' --distribution ''{4}''", getDescriptor().getAccountEmail(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()), distribution);
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --distribution ''{4}'' --append -- ''{3}''", getDescriptor().getAccountEmail(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()), distribution);
 	}
 
 	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message, String distribution) throws InterruptedException, DebianizingException {
 		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b --newVersion {3} ''{4}'' --distribution ''{5}''", getDescriptor().getAccountEmail(), getDescriptor().getAccountName(), remoteDebian, helper, clearMessage(message), distribution);
+		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b --distribution ''{5}'' --newVersion {3} -- ''{4}''", getDescriptor().getAccountEmail(), getDescriptor().getAccountName(), remoteDebian, helper, clearMessage(message), distribution);
 	}
 
 	/**
 	 * FIXME Doesn't work with multi-line entries
 	 */
-	private Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
+	Map<String, String> parseChangelog(Runner runner, String remoteDebian) throws DebianizingException {
 		String changelogOutput = runner.runCommandForOutput("cd \"{0}\" && dpkg-parsechangelog -lchangelog", remoteDebian);
 		Map<String, String> changelog = new HashMap<String, String>();
 		Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
