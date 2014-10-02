@@ -289,12 +289,16 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		public FormValidation doCheckRepoId(@Nonnull @QueryParameter final String repoId) {
 			if (repoId.contains("$")) {  // poor man's check that it has a parameter
 				return FormValidation.warning("The actual repository will be determined at run-time, take care");
-			} else if (Collections2.filter(getRepositories(), new Predicate<DebianPackageRepo>() {
-				@Override
-				public boolean apply(DebianPackageRepo repo) {
-					return repoId.equals(repo.getName());
-				}
-			}).size() == 0) {
+			} else if (
+					Collections2.filter(
+						getRepositories(),
+						new Predicate<DebianPackageRepo>() {
+							@Override
+							public boolean apply(DebianPackageRepo repo) {
+								return repoId.equals(repo.getName());
+							}
+						}
+					).size() == 0) {
 				return FormValidation.error("There is no such repository configured");
 			} else {
 				return FormValidation.ok();
