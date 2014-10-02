@@ -18,9 +18,9 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
+import hudson.util.ComboBoxModel;
 import hudson.util.DescribableList;
 import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,6 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nonnull;
+
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
@@ -42,6 +44,9 @@ import org.kohsuke.stapler.StaplerRequest;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationProvider;
 
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 
 
 public class DebianPackagePublisher extends Recorder implements Serializable {
@@ -57,19 +62,18 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		this.commitChanges = commitChanges;
 		this.commitMessage = commitMessage;
 		this.repoId = repoId;
-
-		if (getRepo() == null) {
-			throw new IllegalArgumentException(MessageFormat.format("Repo {0} is not found in global configuration", repoId));
-		}
 	}
 
-	private DebianPackageRepo getRepo() {
+	private DebianPackageRepo getRepo(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException {
+		String expandedRepo = build.getEnvironment(runner.getListener()).expand(repoId);
+
 		for(DebianPackageRepo repo: getDescriptor().getRepositories()) {
-			if (repo.getName().equals(repoId)) {
+			if (repo.getName().equals(expandedRepo)) {
 				return repo;
 			}
 		}
-		return null;
+
+		throw new IllegalArgumentException(MessageFormat.format("Repo {0} is not found in global configuration", expandedRepo));
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
@@ -84,10 +88,10 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return "";
 	}
 
-	private String getRemoteKeyPath(AbstractBuild<?, ?> build) throws IOException, InterruptedException {
+	private String getRemoteKeyPath(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException {
 		String keysDir = "debian-package-builder-keys";
 
-		String relativeKeyPath = new File(keysDir, getRepo().getKeypath()).getPath();
+		String relativeKeyPath = new File(keysDir, getRepo(build, runner).getKeypath()).getPath();
 		File absoluteKeyPath = new File (Jenkins.getInstance().getRootDir(), relativeKeyPath);
 		FilePath localKey = new FilePath(absoluteKeyPath);
 
@@ -112,14 +116,14 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 		Map<String, String> values = new HashMap<String, String>();
 
-		DebianPackageRepo repo = getRepo();
+		DebianPackageRepo repo = getRepo(build, runner);
 
 		values.put("name", repo.getName());
 		values.put("method", repo.getMethod());
 		values.put("fqdn", repo.getFqdn());
 		values.put("incoming", repo.getIncoming());
 		values.put("login", repo.getLogin());
-		values.put("options", MessageFormat.format("-i {0} ", getRemoteKeyPath(build)) + repo.getOptions());
+		values.put("options", MessageFormat.format("-i {0} ", getRemoteKeyPath(build, runner)) + repo.getOptions());
 
 		StrSubstitutor substitutor = new StrSubstitutor(values);
 		String conf = substitutor.replace(confTemplate);
@@ -272,14 +276,29 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			return new ArrayList<DebianPackageRepo>(repos);
 		}
 
-		public ListBoxModel doFillRepoIdItems() {
-			ListBoxModel model = new ListBoxModel();
+		public ComboBoxModel doFillRepoIdItems() {
+			ComboBoxModel model = new ComboBoxModel();
 
 			for (DebianPackageRepo repo: repos) {
-				model.add(repo.getName(), repo.getName());
+				model.add(repo.getName());
 			}
 
 			return model;
+		}
+
+		public FormValidation doCheckRepoId(@Nonnull @QueryParameter final String repoId) {
+			if (repoId.contains("$")) {  // poor man's check that it has a parameter
+				return FormValidation.warning("The actual repository will be determined at run-time, take care");
+			} else if (Collections2.filter(getRepositories(), new Predicate<DebianPackageRepo>() {
+				@Override
+				public boolean apply(DebianPackageRepo repo) {
+					return repoId.equals(repo.getName());
+				}
+			}).size() == 0) {
+				return FormValidation.error("There is no such repository configured");
+			} else {
+				return FormValidation.ok();
+			}
 		}
 
 		public FormValidation doCheckMethod(@QueryParameter String method) {
