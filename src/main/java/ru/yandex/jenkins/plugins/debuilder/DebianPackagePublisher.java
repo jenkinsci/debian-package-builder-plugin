@@ -88,7 +88,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return "";
 	}
 
-	private String getRemoteKeyPath(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException {
+	private FilePath getRemoteKeyPath(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException {
 		String keysDir = "debian-package-builder-keys";
 
 		String relativeKeyPath = new File(keysDir, getRepo(build, runner).getKeypath()).getPath();
@@ -97,10 +97,10 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 		FilePath remoteKey = build.getWorkspace().createTextTempFile("private", "key", localKey.readToString());
 		remoteKey.chmod(0600);
-		return remoteKey.getRemote();
+		return remoteKey;
 	}
 
-	private FilePath generateDuploadConf(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
+	private FilePath[] generateDuploadConf(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
 		String confTemplate =
 				"package config;\n\n" +
 				"$default_host = '${name}';\n\n" +
@@ -117,13 +117,14 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		Map<String, String> values = new HashMap<String, String>();
 
 		DebianPackageRepo repo = getRepo(build, runner);
+		FilePath keyPath = getRemoteKeyPath(build, runner);
 
 		values.put("name", repo.getName());
 		values.put("method", repo.getMethod());
 		values.put("fqdn", repo.getFqdn());
 		values.put("incoming", repo.getIncoming());
 		values.put("login", repo.getLogin());
-		values.put("options", MessageFormat.format("-i {0} ", getRemoteKeyPath(build, runner)) + repo.getOptions());
+		values.put("options", MessageFormat.format("-i {0} ", keyPath.getRemote()) + repo.getOptions());
 
 		StrSubstitutor substitutor = new StrSubstitutor(values);
 		String conf = substitutor.replace(confTemplate);
@@ -132,7 +133,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
-		return duploadConf;
+		return new FilePath[] { duploadConf, keyPath };
 	}
 
 	@Override
@@ -151,10 +152,11 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
 
-		FilePath duploadConf = null;
+		FilePath[] tempFiles = null;
 		try {
 			runner.runCommand("sudo apt-get -y install dupload devscripts");
-			duploadConf = generateDuploadConf(build, runner);
+			tempFiles = generateDuploadConf(build, runner);
+			String duploadConf = tempFiles[0].getRemote();
 
 			List<String> builtModules = new ArrayList<String>();
 
@@ -172,7 +174,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 					continue;
 				}
 
-				if (!runner.runCommandForResult("cd ''{0}'' && cp ''{1}'' dupload.conf && trap ''rm -f dupload.conf'' EXIT && debrelease -c", module, duploadConf.getRemote())) {
+				if (!runner.runCommandForResult("cd ''{0}'' && cp ''{1}'' dupload.conf && trap ''rm -f dupload.conf'' EXIT && debrelease -c", module, duploadConf)) {
 					throw new DebianizingException("Debrelease failed");
 				}
 
@@ -190,11 +192,13 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
 			build.setResult(Result.UNSTABLE);
 		} finally {
-			if (duploadConf != null) {
-				try {
-					duploadConf.delete();
-				} catch (InterruptedException e) {
-					logger.println(MessageFormat.format("[{0}] Error deleting {1}: {2}", PREFIX, duploadConf.getRemote(), e.getMessage()));
+			if (tempFiles != null) {
+				for (FilePath tempFile : tempFiles) {
+					try {
+						tempFile.delete();
+					} catch (InterruptedException e) {
+						logger.println(MessageFormat.format("[{0}] Error deleting {1}: {2}", PREFIX, tempFile.getRemote(), e.getMessage()));
+					}
 				}
 			}
 		}
