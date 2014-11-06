@@ -40,8 +40,8 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
+import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 import static ru.yandex.jenkins.plugins.debuilder.ChangesExtractor.Change;
-import static ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
 public class DebianPackageBuilder extends Builder {
 	public static final String DEBIAN_SOURCE_PACKAGE = "DEBIAN_SOURCE_PACKAGE";
@@ -90,11 +90,11 @@ public class DebianPackageBuilder extends Builder {
 		PrintStream logger = listener.getLogger();
 
 		FilePath workspace = build.getWorkspace();
-		String remoteDebian = getRemoteDebian(workspace);
-
 		Runner runner = makeRunner(build, launcher, listener);
 
 		try {
+			String remoteDebian = getRemoteDebian(build, runner);
+
 			runner.runCommand("sudo apt-get -y update");
 			runner.runCommand("sudo apt-get -y install aptitude pbuilder");
 
@@ -164,11 +164,24 @@ public class DebianPackageBuilder extends Builder {
 		path.copyRecursiveTo(mask, new FilePath(build.getArtifactsDir()));
 	}
 
-	public String getRemoteDebian(FilePath workspace) {
-		if (pathToDebian.endsWith("debian") || pathToDebian.endsWith("debian/")) {
-			return workspace.child(pathToDebian).getRemote();
-		} else {
-			return workspace.child(pathToDebian).child("debian").getRemote();
+
+	@SuppressWarnings("rawtypes")
+	public String getRemoteDebian(AbstractBuild build, Runner runner) throws DebianizingException {
+		FilePath workspace = build.getWorkspace();
+		String expanded;
+		try {
+			expanded = build.getEnvironment(runner.getListener()).expand(pathToDebian);
+
+			if (expanded.endsWith("debian") || expanded.endsWith("debian/")) {
+				return workspace.child(expanded).getRemote();
+			} else {
+				return workspace.child(expanded).child("debian").getRemote();
+			}
+
+		} catch (IOException cause) {
+			throw new DebianizingException("Failed to get build environment", cause);
+		} catch (InterruptedException cause) {
+			throw new DebianizingException("Failed to get build environment", cause);
 		}
 	}
 
@@ -400,13 +413,15 @@ public class DebianPackageBuilder extends Builder {
 
 	/**
 	 * @param build
+	 * @param runner
 	 * @return all the paths to remote module roots declared in given build by {@link DebianPackageBuilder}s
+	 * @throws DebianizingException
 	 */
-	public static Collection<String> getRemoteModules(AbstractBuild<?, ?> build) {
+	public static Collection<String> getRemoteModules(AbstractBuild<?, ?> build, Runner runner) throws DebianizingException {
 		ArrayList<String> result = new ArrayList<String>();
 
 		for (DebianPackageBuilder builder: getDPBuilders(build)) {
-			result.add(new FilePath(build.getWorkspace().getChannel(), builder.getRemoteDebian(build.getWorkspace())).child("..").getRemote());
+			result.add(new FilePath(build.getWorkspace().getChannel(), builder.getRemoteDebian(build, runner)).child("..").getRemote());
 		}
 
 		return result;
