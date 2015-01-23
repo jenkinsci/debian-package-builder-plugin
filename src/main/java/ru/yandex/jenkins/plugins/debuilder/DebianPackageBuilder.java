@@ -96,7 +96,7 @@ public class DebianPackageBuilder extends Builder {
 			String remoteDebian = getRemoteDebian(build, runner);
 
 			runner.runCommand("sudo apt-get -y update");
-			runner.runCommand("sudo apt-get -y install aptitude pbuilder");
+			runner.runCommand("sudo apt-get -y --force-yes install devscripts equivs gnupg");
 
 			importKeys(workspace, runner);
 
@@ -119,7 +119,7 @@ public class DebianPackageBuilder extends Builder {
 				writeChangelog(build, listener, remoteDebian, runner, changes, distribution);
 			}
 
-			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
+			runner.runCommand("cd ''{0}'' && sudo mk-build-deps --install --tool \"apt-get -y --force-yes\"", remoteDebian);
 			String package_command = String.format("cd '%1$s' && debuild --check-dirname-level 0 --no-tgz-check ", remoteDebian);
 			if (signPackage) {
 				package_command += String.format("-k%1$s -p'gpg --no-tty --passphrase %2$s'", getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());

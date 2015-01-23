@@ -44,7 +44,7 @@ public class SmokeTest {
 
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
-		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
+		verify(runner).runCommand(contains("mk-build-deps"), anyVararg());
 		verifyIrrelevantAndBuild(runner);
 		verifyNoMoreInteractions(runner);
 	}
@@ -67,7 +67,7 @@ public class SmokeTest {
 
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
-		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
+		verify(runner).runCommand(contains("mk-build-deps"), anyVararg());
 		verify(runner).runCommand(contains("dch"), anyVararg());
 		verifyIrrelevantAndBuild(runner);
 		verifyNoMoreInteractions(runner);
@@ -96,7 +96,7 @@ public class SmokeTest {
 
 		verifyInstallAndKeyImport(runner);
 		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
-		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
+		verify(runner).runCommand(contains("mk-build-deps"), anyVararg());
 		verify(runner).runCommand(contains("dch --check-dirname-level 0 -b --distribution ''{5}'' --newVersion {3} -- ''{4}''"), anyVararg());
 		verify(runner).runCommand(contains("dch --check-dirname-level 0 --distribution ''{4}'' --append -- ''{3}''"),
 											any(),
@@ -152,7 +152,7 @@ public class SmokeTest {
 
 	public void verifyInstallAndKeyImport(Runner runner) throws InterruptedException, DebianizingException {
 		verify(runner).runCommand("sudo apt-get -y update");
-		verify(runner).runCommand("sudo apt-get -y install aptitude pbuilder");
+		verify(runner).runCommand("sudo apt-get -y --force-yes install devscripts equivs gnupg");
 		verify(runner).runCommandForResult("gpg --list-key {0}", "foo@bar.com");
 		verify(runner).runCommandForResult("gpg --list-secret-key {0}", "foo@bar.com");
 		verify(runner, times(2)).runCommand(contains("gpg --import"), anyVararg());
