@@ -120,7 +120,7 @@ public class DebianPackageBuilder extends Builder {
 			}
 
 			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
-			String package_command = String.format("cd '%1$s' && debuild --check-dirname-level 0 --no-tgz-check ", remoteDebian);
+			String package_command = String.format("cd '%1$s' && debuild --check-dirname-level 0 --no-tgz-check --preserve-env ", remoteDebian);
 			if (signPackage) {
 				package_command += String.format("-k%1$s -p'gpg --no-tty --passphrase %2$s'", getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());
 			}
