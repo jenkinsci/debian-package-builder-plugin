@@ -95,6 +95,7 @@ public class DebianPackageBuilder extends Builder {
 	@Override
 	public boolean perform(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, BuildListener listener) {
 		PrintStream logger = listener.getLogger();
+		VersionHelper helper;
 
 		FilePath workspace = build.getWorkspace();
 		Runner runner = makeRunner(build, launcher, listener);
@@ -163,8 +164,11 @@ public class DebianPackageBuilder extends Builder {
 
 	@SuppressWarnings("rawtypes")
 	private void archiveArtifacts(AbstractBuild build, Runner runner, String latestVersion) throws IOException, InterruptedException {
+		VersionHelper helper;
+		helper = new VersionHelper(latestVersion);
+
 		FilePath path = build.getWorkspace().child(pathToDebian).child("..");
-		String mask = "*" + latestVersion + "*.deb";
+		String mask = "*" + helper.getNoEpoch() + "*.deb";
 		for (FilePath file:path.list(mask)) {
 			runner.announce("Archiving file <{0}> as a build artifact", file.getName());
 		}

@@ -81,17 +81,23 @@ public class VersionHelper {
 		this.debianRevision = newDebianRevision;
 	}
 
+	public String getNoEpoch() {
+		StringBuilder s = new StringBuilder();
+		s.append(this.upstreamVersion);
+		if (this.debianRevision != null && !this.debianRevision.isEmpty()) {
+			s.append('-');
+			s.append(this.debianRevision);
+		}
+	return s.toString();
+	}
+
 	public String toString() {
 		StringBuilder s = new StringBuilder();
 		if (this.epoch != null && !this.epoch.isEmpty()) {
 			s.append(this.epoch);
 			s.append(':');
 		}
-		s.append(this.upstreamVersion);
-		if (this.debianRevision != null && !this.debianRevision.isEmpty()) {
-			s.append('-');
-			s.append(this.debianRevision);
-		}
+		s.append(this.getNoEpoch());
 		return s.toString();
 	}
 
