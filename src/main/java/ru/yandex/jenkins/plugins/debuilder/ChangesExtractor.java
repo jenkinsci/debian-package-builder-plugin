@@ -132,8 +132,9 @@ public class ChangesExtractor {
 	static List<Change> getChangesFromGit(AbstractBuild build, BuildListener listener, GitSCM scm, String remoteDebian) throws DebianizingException {
 		try {
 			EnvVars environment = build.getEnvironment(listener);
-			GitClient cli = scm.createClient(listener, environment, build);
 			FilePath workspace = build.getWorkspace();
+//			method signature changed in latest Git plugin, @since 2.3.4
+			GitClient cli = scm.createClient(listener, environment, build, workspace);
 			DescriptorImpl descriptor = (DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class);
 			PersonIdent account = new PersonIdent(descriptor.getAccountName(), descriptor.getAccountEmail());
 			return getChangesFromGit(cli, workspace, remoteDebian, account);
