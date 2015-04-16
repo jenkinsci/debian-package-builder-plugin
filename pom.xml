@@ -25,6 +25,11 @@
       <name>Marat Mavlyutov</name>
       <email>mavlyutov@yandex-team.ru</email>
     </developer>
+    <developer>
+      <id>dchr</id>
+      <name>Denis Chernilevskiy</name>
+      <email>dchr@yandex-team.ru</email>
+    </developer>
   </developers>
 
   <scm>
