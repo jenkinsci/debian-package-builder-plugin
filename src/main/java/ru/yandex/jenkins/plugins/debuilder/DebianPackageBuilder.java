@@ -121,14 +121,20 @@ public class DebianPackageBuilder extends Builder {
 
 			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
 			String package_command = String.format("cd '%1$s' && debuild --check-dirname-level 0 --no-tgz-check ", remoteDebian);
+			FilePath sign_command_file = null;
 			if (signPackage) {
-				package_command += String.format("-k%1$s -p'gpg --no-tty --passphrase %2$s'", getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());
+				sign_command_file = workspace.child("debian").createTextTempFile("gpg", null, String.format("#!/bin/sh\nexec gpg --no-tty --passphrase '%1$s' \"$@\"\n", getDescriptor().getPassphrase()));
+				sign_command_file.chmod(0755);
+				package_command += String.format("-k%1$s -sgpg -p%2$s", getDescriptor().getAccountEmail(), sign_command_file.getRemote());
 			}
 			else
 			{
 				package_command += "-us -uc";
 			}
 			runner.runCommand(package_command);
+			if (signPackage) {
+				sign_command_file.delete();
+			}
 
 			archiveArtifacts(build, runner, latestVersion);
 
