@@ -54,16 +54,16 @@ public class DebianPackageBuilder extends Builder {
 	private final String nextVersion;
 	private final boolean generateChangelog;
 	private final boolean signPackage;
-	private final boolean installSources;
+	private final boolean InstallDeps;
 	private final boolean buildEvenWhenThereAreNoChanges;
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean installSources, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean InstallDeps, Boolean buildEvenWhenThereAreNoChanges) {
 		this.pathToDebian = pathToDebian;
 		this.nextVersion = nextVersion;
 		this.generateChangelog = generateChangelog;
 		this.signPackage = signPackage;
-		this.installSources = installSources;
+		this.InstallDeps = InstallDeps;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
 	}
 
@@ -83,8 +83,8 @@ public class DebianPackageBuilder extends Builder {
 		return signPackage;
 	}
 
-	public boolean isInstallSources() {
-		return installSources;
+	public boolean isInstallDeps() {
+		return InstallDeps;
 	}
 
 	public boolean isBuildEvenWhenThereAreNoChanges() {
@@ -101,7 +101,7 @@ public class DebianPackageBuilder extends Builder {
 		try {
 			String remoteDebian = getRemoteDebian(build, runner);
 
-			if (installSources) {
+			if (InstallDeps) {
 				runner.runCommand("sudo apt-get -y update --force-yes");
 				runner.runCommand("sudo apt-get -y install aptitude pbuilder --force-yes");
 			}

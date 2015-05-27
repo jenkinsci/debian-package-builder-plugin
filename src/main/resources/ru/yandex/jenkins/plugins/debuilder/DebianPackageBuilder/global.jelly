@@ -16,4 +16,8 @@
       <f:password />
     </f:entry>
   </f:section>
+  <f:entry title="${Always install dependencies ?}" 
+            field="installDeps">
+    <f:checkbox checked="${instance.installDeps}" default="checked"/>
+  </f:entry>
 </j:jelly>
