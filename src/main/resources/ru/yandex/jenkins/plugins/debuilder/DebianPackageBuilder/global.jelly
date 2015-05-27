@@ -15,8 +15,5 @@
     <f:entry title="${%GPG passphrase}" field="passphrase" value="${descriptor.passphrase}">
       <f:password />
     </f:entry>
-    <f:entry title="Always install sources ?" field="installSources">
-      <f:checkbox checked="${instance.installSources}" default="true"/>
-    </f:entry>
   </f:section>
 </j:jelly>
