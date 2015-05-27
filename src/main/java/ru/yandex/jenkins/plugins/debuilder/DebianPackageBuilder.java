@@ -95,8 +95,8 @@ public class DebianPackageBuilder extends Builder {
 		try {
 			String remoteDebian = getRemoteDebian(build, runner);
 
-			runner.runCommand("sudo apt-get -y update");
-			runner.runCommand("sudo apt-get -y install aptitude pbuilder");
+			runner.runCommand("sudo apt-get -y update --force-yes");
+			runner.runCommand("sudo apt-get -y install aptitude pbuilder --force-yes");
 
 			importKeys(workspace, runner);
 
