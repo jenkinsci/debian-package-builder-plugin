@@ -151,8 +151,8 @@ public class SmokeTest {
 	}
 
 	public void verifyInstallAndKeyImport(Runner runner) throws InterruptedException, DebianizingException {
-		verify(runner).runCommand("sudo apt-get -y update");
-		verify(runner).runCommand("sudo apt-get -y install aptitude pbuilder");
+		verify(runner).runCommand("sudo apt-get -y update --force-yes");
+		verify(runner).runCommand("sudo apt-get -y install aptitude pbuilder --force-yes");
 		verify(runner).runCommandForResult("gpg --list-key {0}", "foo@bar.com");
 		verify(runner).runCommandForResult("gpg --list-secret-key {0}", "foo@bar.com");
 		verify(runner, times(2)).runCommand(contains("gpg --import"), anyVararg());
