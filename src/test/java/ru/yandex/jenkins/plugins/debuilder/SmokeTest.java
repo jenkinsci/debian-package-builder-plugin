@@ -35,7 +35,7 @@ public class SmokeTest {
 	 */
 	@Test
 	public void smokeWithoutChangelog() throws Exception {
-		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "", false, false, true));
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "", false, false, true, true));
 
 		mockTestDescriptor(builder);
 		Runner runner = mockBasicRunner(builder);
@@ -58,7 +58,7 @@ public class SmokeTest {
 	 */
 	@Test
 	public void smokeWithNewVersion() throws Exception {
-		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true));
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true, true));
 
 		mockTestDescriptor(builder);
 		Runner runner = mockBasicRunner(builder);
@@ -83,7 +83,7 @@ public class SmokeTest {
 	 */
 	@Test
 	public void smokeWithChangesetVersion() throws Exception {
-		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true));
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true, true));
 
 		mockTestDescriptor(builder);
 		Runner runner = mockBasicRunner(builder);
