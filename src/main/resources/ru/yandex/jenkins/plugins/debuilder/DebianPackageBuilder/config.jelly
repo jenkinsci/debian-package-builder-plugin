@@ -23,8 +23,8 @@
             field="signPackage">
     <f:checkbox checked="${instance.signPackage}" default="true"/>
   </f:entry>
-<f:optionalBlock title="Always install dependencies?"
-                   name="InstallDeps"
-                   checked="${instance.InstallDeps}"
-                   inline="true">
+  <f:entry title="Always install dependencies?"
+            field="InstallDeps">
+    <f:checkbox checked="${instance.InstallDeps}" default="true"/>
+  </f:entry>
 </j:jelly>
