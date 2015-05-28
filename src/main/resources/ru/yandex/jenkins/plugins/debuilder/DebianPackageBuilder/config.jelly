@@ -24,7 +24,7 @@
     <f:checkbox checked="${instance.signPackage}" default="true"/>
   </f:entry>
   <f:entry title="Always install dependencies?"
-            field="InstallDeps">
-    <f:checkbox checked="${instance.InstallDeps}" default="true"/>
+            field="installDeps">
+    <f:checkbox checked="${instance.installDeps}" default="true"/>
   </f:entry>
 </j:jelly>
