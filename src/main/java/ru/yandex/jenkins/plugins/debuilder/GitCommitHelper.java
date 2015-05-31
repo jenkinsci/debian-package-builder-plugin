@@ -1,7 +1,6 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
 import hudson.EnvVars;
-import hudson.FilePath.FileCallable;
 import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.plugins.git.GitSCM;
@@ -12,6 +11,7 @@ import java.io.IOException;
 import java.util.Collection;
 
 import jenkins.model.Jenkins;
+import jenkins.SlaveToMasterFileCallable;
 
 import org.eclipse.jgit.lib.PersonIdent;
 import org.jenkinsci.plugins.gitclient.Git;
@@ -27,7 +27,7 @@ import ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.DescriptorImpl;
  * @author pupssman
  *
  */
-public class GitCommitHelper implements FileCallable<Boolean>{
+public class GitCommitHelper extends SlaveToMasterFileCallable<Boolean> {
 
 	private static final long serialVersionUID = 1L;
 	private final EnvVars environment;
@@ -73,7 +73,6 @@ public class GitCommitHelper implements FileCallable<Boolean>{
 			git.setAuthor(person);
 			git.setCommitter(person);
 			git.commit(commitMessage);
-			
 			return true;
 		} else {
 			return false;
