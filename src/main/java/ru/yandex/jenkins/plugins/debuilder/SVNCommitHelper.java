@@ -1,12 +1,12 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
-import hudson.remoting.Callable;
 import hudson.scm.SvnClientManager;
 import hudson.scm.SubversionSCM;
 
 import java.io.File;
 import java.io.Serializable;
 import java.text.MessageFormat;
+import jenkins.security.SlaveToMasterCallable;
 
 import org.tmatesoft.svn.core.SVNCommitInfo;
 import org.tmatesoft.svn.core.SVNDepth;
@@ -14,7 +14,7 @@ import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationProvider;
 import org.tmatesoft.svn.core.wc.SVNCommitPacket;
 
-public class SVNCommitHelper implements Serializable , Callable<String, DebianizingException>{
+public class SVNCommitHelper extends SlaveToMasterCallable<String, DebianizingException> implements Serializable{
 	private static final long serialVersionUID = 1L;
 
 	private final ISVNAuthenticationProvider provider;
