@@ -9,6 +9,7 @@ import hudson.plugins.git.GitChangeSet;
 import hudson.plugins.git.GitSCM;
 import hudson.scm.*;
 import jenkins.model.Jenkins;
+
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.jenkinsci.plugins.gitclient.GitClient;
@@ -16,6 +17,7 @@ import org.tmatesoft.svn.core.ISVNLogEntryHandler;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNLogEntry;
 import org.tmatesoft.svn.core.SVNURL;
+import org.tmatesoft.svn.core.auth.ISVNAuthenticationProvider;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 
 import java.io.IOException;
@@ -94,25 +96,28 @@ public class ChangesExtractor {
 
 	static List<Change> getChangesFromSubversion(@SuppressWarnings("rawtypes") AbstractBuild build, final Runner runner, SubversionSCM scm, final String remoteDebian, String latestRevision, String currentRevision, final String ourMessage) throws DebianizingException {
 		final List<Change> result = new ArrayList<Change>();
+		
+		ModuleLocation location = findOurLocation(build, scm, runner, remoteDebian);
 
-		SvnClientManager manager = SubversionSCM.createClientManager(build.getProject());
+		ISVNAuthenticationProvider authenticationProvider = ((SubversionSCM)build.getProject().getScm()).createAuthenticationProvider(build.getProject(), location);
+		
+		SvnClientManager manager = SubversionSCM.createClientManager(authenticationProvider);
+
 		try {
-			ModuleLocation location = findOurLocation(build, scm, runner, remoteDebian);
+			SVNURL svnurl = location.getSVNURL();
+			
+			manager.getLogClient().doLog(svnurl, null, SVNRevision.UNDEFINED, SVNRevision.create(Long.parseLong(latestRevision) + 1), SVNRevision.parse(currentRevision), false, true, 0, new ISVNLogEntryHandler() {
 
-			try {
-				SVNURL svnurl = location.getSVNURL();
-				manager.getLogClient().doLog(svnurl, null, SVNRevision.UNDEFINED, SVNRevision.create(Long.parseLong(latestRevision) + 1), SVNRevision.parse(currentRevision), false, true, 0, new ISVNLogEntryHandler() {
-
-					@Override
-					public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
-						if (!logEntry.getMessage().equals(ourMessage)) {
-							result.add(new Change(logEntry.getAuthor(), logEntry.getMessage()));
-						}
+				@Override
+				public void handleLogEntry(SVNLogEntry logEntry) throws SVNException {
+					if (!logEntry.getMessage().equals(ourMessage)) {
+						result.add(new Change(logEntry.getAuthor(), logEntry.getMessage()));
 					}
-				});
-			} catch (SVNException e) {
-				throw new DebianizingException("SVNException: " + e.getMessage(), e);
-			}
+				}
+			});
+		} catch (SVNException e) {
+			e.printStackTrace();
+			throw new DebianizingException("SVNException: " + e.getMessage(), e);
 		} finally {
 			manager.dispose();
 		}
