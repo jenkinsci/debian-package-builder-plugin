@@ -240,11 +240,11 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	}
 
 	private void commitToSVN(final AbstractBuild<?, ?> build, final Runner runner, SubversionSCM svn, String commitMessage) throws DebianizingException {
-		hudson.scm.SubversionSCM.DescriptorImpl descriptor = (hudson.scm.SubversionSCM.DescriptorImpl) Jenkins.getInstance().getDescriptor(hudson.scm.SubversionSCM.class);
-		ISVNAuthenticationProvider authenticationProvider = descriptor.createAuthenticationProvider(build.getProject());
-
 		try {
 			for (String module: DebianPackageBuilder.getRemoteModules(build, runner)) {
+				ISVNAuthenticationProvider authenticationProvider = svn.createAuthenticationProvider(build.getProject(), 
+					ChangesExtractor.findOurLocation(build, svn, runner, module));
+
 				SVNCommitHelper helper = new SVNCommitHelper(authenticationProvider, module, commitMessage);
 				runner.announce("Commited revision <{0}> of <{2}> with message <{1}>", runner.getChannel().call(helper), commitMessage, module);
 			}

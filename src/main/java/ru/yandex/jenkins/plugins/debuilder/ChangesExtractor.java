@@ -75,19 +75,18 @@ public class ChangesExtractor {
 	}
 
 	static ModuleLocation findOurLocation(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner, String remoteDebian) throws DebianizingException {
-		for (ModuleLocation location: scm.getLocations()) {
-			String moduleDir;
-			try {
-				ModuleLocation expandedLocation = location.getExpandedLocation(build.getEnvironment(runner.getListener()));
-				moduleDir = expandedLocation.getLocalDir();
+		EnvVars environment;
+		try {
+			environment = build.getEnvironment(runner.getListener());
+		} catch (IOException e) {
+			throw new DebianizingException("IOException: " + e.getMessage(), e);
+		} catch (InterruptedException e) {
+			throw new DebianizingException("InterruptedException: " + e.getMessage(), e);
+		}
 
-				if (remoteDebian.startsWith(build.getWorkspace().child(moduleDir).getRemote())) {
-					return expandedLocation;
-				}
-			} catch (IOException e) {
-				throw new DebianizingException("IOException: " + e.getMessage(), e);
-			} catch (InterruptedException e) {
-				throw new DebianizingException("InterruptedException: " + e.getMessage(), e);
+		for (ModuleLocation location: scm.getLocations(environment, build)) {
+			if (remoteDebian.startsWith(build.getWorkspace().child(location.getLocalDir()).getRemote())) {
+				return location;
 			}
 		}
 
