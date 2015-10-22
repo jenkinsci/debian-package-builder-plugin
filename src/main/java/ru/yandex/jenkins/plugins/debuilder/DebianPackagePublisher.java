@@ -145,7 +145,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException {
 		PrintStream logger = listener.getLogger();
 
-		if (build.getResult().isWorseThan(Result.SUCCESS)) {
+		if (build.getResult() != null && build.getResult().isWorseThan(Result.SUCCESS)) {
 			logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, "Build is not success, will not execute debrelease"));
 			return true;
 		}
