@@ -304,7 +304,7 @@ public class DebianPackageBuilder extends Builder {
 		Pattern changelogFormat = Pattern.compile("(\\w+):\\s*(.*)");
 
 		for(String row: changelogOutput.split("\n")) {
-			Matcher matcher = changelogFormat.matcher(row);
+			Matcher matcher = changelogFormat.matcher(row.trim());
 			if (matcher.matches()) {
 				 changelog.put(matcher.group(1), matcher.group(2));
 			}
