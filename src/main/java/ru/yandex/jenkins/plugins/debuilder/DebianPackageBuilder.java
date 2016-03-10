@@ -51,14 +51,16 @@ public class DebianPackageBuilder extends Builder {
 
 	// location of debian catalog relative to the workspace root
 	private final String pathToDebian;
+	private final String extraBuildOptions;
 	private final String nextVersion;
 	private final boolean generateChangelog;
 	private final boolean signPackage;
 	private final boolean buildEvenWhenThereAreNoChanges;
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, String extraBuildOptions, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges) {
 		this.pathToDebian = pathToDebian;
+		this.extraBuildOptions = extraBuildOptions;
 		this.nextVersion = nextVersion;
 		this.generateChangelog = generateChangelog;
 		this.signPackage = signPackage;
@@ -67,6 +69,10 @@ public class DebianPackageBuilder extends Builder {
 
 	public String getPathToDebian() {
 		return pathToDebian;
+	}
+
+	public String getExtraBuildOptions() {
+		return extraBuildOptions;
 	}
 
 	public String getNextVersion() {
@@ -127,6 +133,10 @@ public class DebianPackageBuilder extends Builder {
 			else
 			{
 				package_command += "-us -uc";
+			}
+			if (extraBuildOptions != null && !extraBuildOptions.trim().isEmpty()) {
+				EnvVars env = build.getEnvironment(runner.getListener());
+				package_command += " " + env.expand(extraBuildOptions);
 			}
 			runner.runCommand(package_command);
 
