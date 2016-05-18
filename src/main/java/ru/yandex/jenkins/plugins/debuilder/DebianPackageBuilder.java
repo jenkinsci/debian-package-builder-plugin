@@ -5,13 +5,8 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
-import hudson.model.BuildListener;
-import hudson.model.Environment;
-import hudson.model.AbstractBuild;
-import hudson.model.Cause;
+import hudson.model.*;
 import hudson.model.Cause.UserIdCause;
-import hudson.model.Descriptor;
-import hudson.model.Project;
 import hudson.scm.SCM;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
@@ -33,6 +28,7 @@ import java.util.regex.Pattern;
 
 import jedi.functional.FunctionalPrimitives;
 import jedi.functional.Functor;
+import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -41,9 +37,12 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
+
+import javax.annotation.Nonnull;
+
 import static ru.yandex.jenkins.plugins.debuilder.ChangesExtractor.Change;
 
-public class DebianPackageBuilder extends Builder {
+public class DebianPackageBuilder extends Builder implements SimpleBuildStep {
 	public static final String DEBIAN_SOURCE_PACKAGE = "DEBIAN_SOURCE_PACKAGE";
 	public static final String DEBIAN_PACKAGE_VERSION = "DEBIAN_PACKAGE_VERSION";
 	public static final String ABORT_MESSAGE = "[{0}] Aborting: {1} ";
@@ -86,14 +85,13 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	@Override
-	public boolean perform(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, BuildListener listener) {
+	public void perform(@Nonnull Run<?, ?> build, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) {
 		PrintStream logger = listener.getLogger();
 
-		FilePath workspace = build.getWorkspace();
-		Runner runner = makeRunner(build, launcher, listener);
+		Runner runner = makeRunner(build, workspace, launcher, listener);
 
 		try {
-			String remoteDebian = getRemoteDebian(build, runner);
+			String remoteDebian = getRemoteDebian(build, workspace, runner);
 
 			runner.runCommand("sudo apt-get -y update");
 			runner.runCommand("sudo apt-get -y install aptitude pbuilder");
@@ -112,7 +110,6 @@ public class DebianPackageBuilder extends Builder {
 
 				if (isTriggeredAutomatically(build) && changes.getRight().isEmpty() && !buildEvenWhenThereAreNoChanges) {
 					runner.announce("There are no creditable changes for this build - not building package.");
-					return true;
 				}
 
 				latestVersion = changes.getLeft().toString();
@@ -130,33 +127,28 @@ public class DebianPackageBuilder extends Builder {
 			}
 			runner.runCommand(package_command);
 
-			archiveArtifacts(build, runner, latestVersion);
+			archiveArtifacts(build, workspace, runner, latestVersion);
 
 			build.addAction(new DebianBadge(latestVersion, remoteDebian));
 			EnvVars envVars = new EnvVars(DEBIAN_SOURCE_PACKAGE, source, DEBIAN_PACKAGE_VERSION, latestVersion);
-			build.getEnvironments().add(Environment.create(envVars));
+			build.getEnvironment(listener).add(Environment.create(envVars));
 		} catch (InterruptedException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
-			return false;
 		} catch (DebianizingException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
-			return false;
 		} catch (IOException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
-			return false;
 		}
-
-		return true;
 	}
 
-	@SuppressWarnings("rawtypes") Runner makeRunner(AbstractBuild build, Launcher launcher, BuildListener listener) {
-		Runner runner = new Runner(build, launcher, listener, PREFIX);
+	@SuppressWarnings("rawtypes") Runner makeRunner(Run build, FilePath workspace, Launcher launcher, TaskListener listener) {
+		Runner runner = new Runner(build, workspace, launcher, listener, PREFIX);
 		return runner;
 	}
 
 	@SuppressWarnings("rawtypes")
-	private void archiveArtifacts(AbstractBuild build, Runner runner, String latestVersion) throws IOException, InterruptedException {
-		FilePath path = build.getWorkspace().child(pathToDebian).child("..");
+	private void archiveArtifacts(Run build, FilePath workspace, Runner runner, String latestVersion) throws IOException, InterruptedException {
+		FilePath path = workspace.child(pathToDebian).child("..");
 		String mask = "*" + latestVersion + "*.deb";
 		for (FilePath file:path.list(mask)) {
 			runner.announce("Archiving file <{0}> as a build artifact", file.getName());
@@ -164,10 +156,8 @@ public class DebianPackageBuilder extends Builder {
 		path.copyRecursiveTo(mask, new FilePath(build.getArtifactsDir()));
 	}
 
-
 	@SuppressWarnings("rawtypes")
-	public String getRemoteDebian(AbstractBuild build, Runner runner) throws DebianizingException {
-		FilePath workspace = build.getWorkspace();
+	public String getRemoteDebian(Run<?,?> build, FilePath workspace, Runner runner) throws DebianizingException {
 		String expanded;
 		try {
 			expanded = build.getEnvironment(runner.getListener()).expand(pathToDebian);
@@ -197,7 +187,8 @@ public class DebianPackageBuilder extends Builder {
 	 * @throws InterruptedException
 	 * @throws IOException
 	 */
-	@SuppressWarnings({ "rawtypes" }) Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, String remoteDebian) throws DebianizingException, InterruptedException, IOException {
+	@SuppressWarnings({ "rawtypes" }) Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, Run<?, ?> build, String remoteDebian)
+			throws DebianizingException, InterruptedException, IOException {
 		VersionHelper helper;
 		EnvVars env = build.getEnvironment(runner.getListener());
 		String nextVersion = env.expand(this.nextVersion);
@@ -209,8 +200,7 @@ public class DebianPackageBuilder extends Builder {
 		} else {
 			helper = new VersionHelper(nextVersion);
 		}
-
-		SCM scm = build.getProject().getScm();
+		SCM scm = build.getParent().getScm();
 		String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
 		List<Change> changes = ChangesExtractor.getChanges(build, runner, scm, remoteDebian, ourMessage, helper);
 
@@ -225,14 +215,13 @@ public class DebianPackageBuilder extends Builder {
 	 * @param remoteDebian
 	 * @param runner
 	 * @param changes
-	 * @param previousChangelog
 	 * @throws IOException
 	 * @throws InterruptedException
 	 * @throws DebianizingException
 	 */
 	@SuppressWarnings("rawtypes")
-	private void writeChangelog(AbstractBuild build, BuildListener listener, String remoteDebian, Runner runner, Pair<VersionHelper, List<Change>> changes, String distribution) throws IOException,
-			InterruptedException, DebianizingException {
+	private void writeChangelog(Run build, TaskListener listener, String remoteDebian, Runner runner, Pair<VersionHelper, List<Change>> changes, String distribution)
+			throws IOException, InterruptedException, DebianizingException {
 
 		String versionMessage = getCausedMessage(build);
 
@@ -245,7 +234,7 @@ public class DebianPackageBuilder extends Builder {
 	}
 
 	@SuppressWarnings("rawtypes")
-	private boolean isTriggeredAutomatically (AbstractBuild build) {
+	private boolean isTriggeredAutomatically (Run build) {
 		for (Object cause: build.getCauses()) {
 			if (cause instanceof UserIdCause) {
 				return false;
@@ -261,7 +250,7 @@ public class DebianPackageBuilder extends Builder {
 	 * @return
 	 */
 	@SuppressWarnings("rawtypes")
-	private String getCausedMessage(AbstractBuild build) {
+	private String getCausedMessage(Run build) {
 		String firstPart = "Build #${BUILD_NUMBER}. ";
 
 		@SuppressWarnings("unchecked")
@@ -285,12 +274,14 @@ public class DebianPackageBuilder extends Builder {
 		return message.replaceAll("\\'", "");
 	}
 
-	private void addChange(Runner runner, String remoteDebian, Change change, String distribution) throws InterruptedException, DebianizingException {
+	private void addChange(Runner runner, String remoteDebian, Change change, String distribution)
+			throws IOException, InterruptedException, DebianizingException {
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
 		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --distribution ''{4}'' --append -- ''{3}''", getDescriptor().getAccountEmail(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()), distribution);
 	}
 
-	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message, String distribution) throws InterruptedException, DebianizingException {
+	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message, String distribution)
+			throws IOException, InterruptedException, DebianizingException {
 		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
 		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b --distribution ''{5}'' --newVersion {3} -- ''{4}''", getDescriptor().getAccountEmail(), getDescriptor().getAccountName(), remoteDebian, helper, clearMessage(message), distribution);
 	}
@@ -410,18 +401,17 @@ public class DebianPackageBuilder extends Builder {
 
 	}
 
-
 	/**
 	 * @param build
 	 * @param runner
 	 * @return all the paths to remote module roots declared in given build by {@link DebianPackageBuilder}s
 	 * @throws DebianizingException
 	 */
-	public static Collection<String> getRemoteModules(AbstractBuild<?, ?> build, Runner runner) throws DebianizingException {
+	public static Collection<String> getRemoteModules(Run<?, ?> build, FilePath workspace, Runner runner) throws DebianizingException {
 		ArrayList<String> result = new ArrayList<String>();
 
 		for (DebianPackageBuilder builder: getDPBuilders(build)) {
-			result.add(new FilePath(build.getWorkspace().getChannel(), builder.getRemoteDebian(build, runner)).child("..").getRemote());
+			result.add(new FilePath(workspace.getChannel(), builder.getRemoteDebian(build, workspace, runner)).child("..").getRemote());
 		}
 
 		return result;
@@ -432,11 +422,11 @@ public class DebianPackageBuilder extends Builder {
 	 * @return all the {@link DebianPackageBuilder}s participating in this build
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public static Collection<DebianPackageBuilder> getDPBuilders(AbstractBuild<?, ?> build) {
+	public static Collection<DebianPackageBuilder> getDPBuilders(Run<?, ?> build) {
 		ArrayList<DebianPackageBuilder> result = new ArrayList<DebianPackageBuilder>();
 
-		if (build.getProject() instanceof Project) {
-			DescribableList<Builder, Descriptor<Builder>> builders = ((Project)build.getProject()).getBuildersList();
+		if (build.getParent() instanceof Project) {
+			DescribableList<Builder, Descriptor<Builder>> builders = ((Project)build.getParent()).getBuildersList();
 			for (Builder builder: builders) {
 				if (builder instanceof DebianPackageBuilder) {
 					result.add((DebianPackageBuilder) builder);

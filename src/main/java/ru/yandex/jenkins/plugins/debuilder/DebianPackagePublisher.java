@@ -4,13 +4,7 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.BuildBadgeAction;
-import hudson.model.BuildListener;
-import hudson.model.Result;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.Descriptor;
-import hudson.model.Project;
+import hudson.model.*;
 import hudson.plugins.git.GitSCM;
 import hudson.scm.SCM;
 import hudson.scm.SubversionSCM;
@@ -77,8 +71,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static String getUsedCommitMessage(AbstractBuild build) {
-		DescribableList<Publisher, Descriptor<Publisher>> publishersList = ((Project)build.getProject()).getPublishersList();
+	public static String getUsedCommitMessage(Run build) {
+		DescribableList<Publisher, Descriptor<Publisher>> publishersList = ((Project)build.getParent()).getPublishersList();
 		for (Publisher publisher: publishersList) {
 			if (publisher instanceof DebianPackagePublisher) {
 				return ((DebianPackagePublisher) publisher).commitMessage;

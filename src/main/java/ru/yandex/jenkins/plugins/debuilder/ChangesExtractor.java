@@ -5,6 +5,7 @@ import hudson.FilePath;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.model.Run;
+import hudson.model.TaskListener;
 import hudson.plugins.git.GitChangeSet;
 import hudson.plugins.git.GitSCM;
 import hudson.scm.*;
@@ -34,8 +35,8 @@ import static ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.Descripto
 
 public class ChangesExtractor {
 
-	public static List<Change> getChanges(AbstractBuild build, Runner runner, SCM scm, String remoteDebian, String ourMessage, VersionHelper helper) throws DebianizingException, InterruptedException {
-		BuildListener listener = runner.getListener();
+	public static List<Change> getChanges(Run build, Runner runner, SCM scm, String remoteDebian, String ourMessage, VersionHelper helper) throws DebianizingException, InterruptedException {
+		TaskListener listener = runner.getListener();
 		if (scm instanceof SubversionSCM) {
 			String oldRevision = helper.getRevision();
 			helper.setRevision(getSVNRevision(build, runner, (SubversionSCM) scm, remoteDebian));
@@ -55,10 +56,10 @@ public class ChangesExtractor {
 		}
 	}
 
-	static String getSVNRevision(@SuppressWarnings("rawtypes") AbstractBuild build, Runner runner, SubversionSCM scm, String remoteDebian) throws DebianizingException {
-		ModuleLocation location = findOurLocation(build, scm, runner, remoteDebian);
+	static String getSVNRevision(@SuppressWarnings("rawtypes") Run build, FilePath workspace, Runner runner, SubversionSCM scm, String remoteDebian) throws DebianizingException {
+		ModuleLocation location = findOurLocation(build, workspace, scm, runner, remoteDebian);
 		try {
-			Map<String, Long> revisionsForBuild = SubversionHack.getRevisionsForBuild(scm, build);
+			Map<String, Long> revisionsForBuild = SubversionHack.getRevisionsForBuild(scm, build, workspace);
 
 			return Long.toString(revisionsForBuild.get(location.getSVNURL().toString()));
 		} catch (IOException e) {
@@ -74,7 +75,7 @@ public class ChangesExtractor {
 		}
 	}
 
-	static ModuleLocation findOurLocation(@SuppressWarnings("rawtypes") AbstractBuild build, SubversionSCM scm, Runner runner, String remoteDebian) throws DebianizingException {
+	static ModuleLocation findOurLocation(@SuppressWarnings("rawtypes") Run build, FilePath workspace, SubversionSCM scm, Runner runner, String remoteDebian) throws DebianizingException {
 		EnvVars environment;
 		try {
 			environment = build.getEnvironment(runner.getListener());
@@ -85,7 +86,7 @@ public class ChangesExtractor {
 		}
 
 		for (ModuleLocation location: scm.getLocations(environment, build)) {
-			if (remoteDebian.startsWith(build.getWorkspace().child(location.getLocalDir()).getRemote())) {
+			if (remoteDebian.startsWith(workspace.child(location.getLocalDir()).getRemote())) {
 				return location;
 			}
 		}
@@ -93,12 +94,12 @@ public class ChangesExtractor {
 		throw new DebianizingException("Can't find module location for remoteDebian " + remoteDebian);
 	}
 
-	static List<Change> getChangesFromSubversion(@SuppressWarnings("rawtypes") AbstractBuild build, final Runner runner, SubversionSCM scm, final String remoteDebian, String latestRevision, String currentRevision, final String ourMessage) throws DebianizingException {
+	static List<Change> getChangesFromSubversion(@SuppressWarnings("rawtypes") Run build, FilePath workspace, final Runner runner, SubversionSCM scm, final String remoteDebian, String latestRevision, String currentRevision, final String ourMessage) throws DebianizingException {
 		final List<Change> result = new ArrayList<Change>();
 		
-		ModuleLocation location = findOurLocation(build, scm, runner, remoteDebian);
+		ModuleLocation location = findOurLocation(build, workspace, scm, runner, remoteDebian);
 
-		ISVNAuthenticationProvider authenticationProvider = ((SubversionSCM)build.getProject().getScm()).createAuthenticationProvider(build.getProject(), location);
+		ISVNAuthenticationProvider authenticationProvider = ((SubversionSCM)build.getParent().getScm()).createAuthenticationProvider(build.getParent(), location);
 		
 		SvnClientManager manager = SubversionSCM.createClientManager(authenticationProvider);
 
@@ -197,14 +198,14 @@ public class ChangesExtractor {
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	static List<Change> getChangesSinceLastBuild(AbstractBuild build, String ourMessage) throws InterruptedException, DebianizingException {
+	static List<Change> getChangesSinceLastBuild(Run build, String ourMessage) throws InterruptedException, DebianizingException {
 		List<Change> result = new ArrayList<Change>();
-		Run lastSuccessfulBuild = build.getProject().getLastSuccessfulBuild();
+		Run lastSuccessfulBuild = build.getParent().getLastSuccessfulBuild();
 
 		int lastSuccessNumber = lastSuccessfulBuild == null ? 0 : lastSuccessfulBuild.number;
 
 		for (int num = lastSuccessNumber + 1; num <= build.number; num ++) {
-			AbstractBuild run = build.getProject().getBuildByNumber(num);
+			Run run = build.getParent().getBuildByNumber(num);
 
 			if (run == null) {
 				continue;
