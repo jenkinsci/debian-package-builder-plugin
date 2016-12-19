@@ -142,7 +142,12 @@ public class ChangesExtractor {
 			FilePath workspace = build.getWorkspace();
 //			method signature changed in latest Git plugin, @since 2.3.4
 			GitClient cli = scm.createClient(listener, environment, build, workspace);
-			String relativeTargetDirectory = scm.getExtensions().get(RelativeTargetDirectory.class).getRelativeTargetDir();
+
+			String relativeTargetDirectory = "";
+			if(scm.getExtensions().get(RelativeTargetDirectory.class) != null) {
+				relativeTargetDirectory = scm.getExtensions().get(RelativeTargetDirectory.class).getRelativeTargetDir();
+			}
+
 			DescriptorImpl descriptor = (DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class);
 			PersonIdent account = new PersonIdent(descriptor.getAccountName(), descriptor.getAccountEmail());
 			return getChangesFromGit(cli, workspace, relativeTargetDirectory, remoteDebian, account);
@@ -166,7 +171,7 @@ public class ChangesExtractor {
 			Change change = new Change(changeSet.getAuthorName(), changeSet.getMsg());
 
 			for (GitChangeSet.Path path : changeSet.getPaths()) {
-				String changeSetPath = Strings.isNullOrEmpty(relativeTargetDirectory) ? path.getPath() : Paths.get(relativeTargetDirectory, path.getPath()).toString();
+				String changeSetPath = Paths.get(relativeTargetDirectory, path.getPath()).toString();
 				String filePath = workspace.child(changeSetPath).getRemote();
 				if (filePath.contains(changelogPath)) {
 					if (changeSet.getAuthorName().equals(account.getName())
