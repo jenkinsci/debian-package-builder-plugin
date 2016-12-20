@@ -1,6 +1,5 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
-import com.google.common.base.Strings;
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.AbstractBuild;
@@ -23,7 +22,6 @@ import org.tmatesoft.svn.core.auth.ISVNAuthenticationProvider;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -171,9 +169,8 @@ public class ChangesExtractor {
 			Change change = new Change(changeSet.getAuthorName(), changeSet.getMsg());
 
 			for (GitChangeSet.Path path : changeSet.getPaths()) {
-				String changeSetPath = Paths.get(relativeTargetDirectory, path.getPath()).toString();
-				String filePath = workspace.child(changeSetPath).getRemote();
-				if (filePath.contains(changelogPath)) {
+				String filePath = workspace.child(relativeTargetDirectory).child(path.getPath()).getRemote();
+				if (filePath.equals(changelogPath)) {
 					if (changeSet.getAuthorName().equals(account.getName())
 						& email.equals(account.getEmailAddress())) {
 						return changesSinceLastChangelogModificationByPlugin;
