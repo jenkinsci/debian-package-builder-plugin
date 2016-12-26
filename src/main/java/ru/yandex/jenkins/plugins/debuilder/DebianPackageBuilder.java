@@ -13,6 +13,7 @@ import hudson.model.Cause.UserIdCause;
 import hudson.model.Descriptor;
 import hudson.model.Project;
 import hudson.scm.SCM;
+import hudson.scm.NullSCM;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.DescribableList;
@@ -55,14 +56,16 @@ public class DebianPackageBuilder extends Builder {
 	private final boolean generateChangelog;
 	private final boolean signPackage;
 	private final boolean buildEvenWhenThereAreNoChanges;
+	private final boolean useSCM;
 
 	@DataBoundConstructor
-	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges) {
+	public DebianPackageBuilder(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges, Boolean useSCM) {
 		this.pathToDebian = pathToDebian;
 		this.nextVersion = nextVersion;
 		this.generateChangelog = generateChangelog;
 		this.signPackage = signPackage;
 		this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
+		this.useSCM = useSCM;
 	}
 
 	public String getPathToDebian() {
@@ -79,6 +82,10 @@ public class DebianPackageBuilder extends Builder {
 
 	public boolean isSignPackage() {
 		return signPackage;
+	}
+
+	public boolean isUseSCM() {
+		return useSCM;
 	}
 
 	public boolean isBuildEvenWhenThereAreNoChanges() {
@@ -108,7 +115,7 @@ public class DebianPackageBuilder extends Builder {
 			runner.announce("Determined latest version to be {0}", latestVersion);
 
 			if (generateChangelog) {
-				Pair<VersionHelper, List<Change>> changes = generateChangelog(latestVersion, runner, build, remoteDebian);
+				Pair<VersionHelper, List<Change>> changes = generateChangelog(latestVersion, runner, build, remoteDebian, useSCM);
 
 				if (isTriggeredAutomatically(build) && changes.getRight().isEmpty() && !buildEvenWhenThereAreNoChanges) {
 					runner.announce("There are no creditable changes for this build - not building package.");
@@ -197,7 +204,7 @@ public class DebianPackageBuilder extends Builder {
 	 * @throws InterruptedException
 	 * @throws IOException
 	 */
-	@SuppressWarnings({ "rawtypes" }) Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, String remoteDebian) throws DebianizingException, InterruptedException, IOException {
+	@SuppressWarnings({ "rawtypes" }) Pair<VersionHelper, List<Change>> generateChangelog(String latestVersion, Runner runner, AbstractBuild build, String remoteDebian, Boolean useSCM) throws DebianizingException, InterruptedException, IOException {
 		VersionHelper helper;
 		EnvVars env = build.getEnvironment(runner.getListener());
 		String nextVersion = env.expand(this.nextVersion);
@@ -210,7 +217,12 @@ public class DebianPackageBuilder extends Builder {
 			helper = new VersionHelper(nextVersion);
 		}
 
-		SCM scm = build.getProject().getScm();
+		SCM scm;
+
+		if (useSCM)
+			scm = build.getProject().getScm();
+		else
+			scm = new NullSCM();
 		String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
 		List<Change> changes = ChangesExtractor.getChanges(build, runner, scm, remoteDebian, ourMessage, helper);
 
