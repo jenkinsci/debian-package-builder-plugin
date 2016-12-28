@@ -38,14 +38,14 @@ public class ChangesExtractor {
 	public static List<Change> getChanges(AbstractBuild build, Runner runner, SCM scm, String remoteDebian, String ourMessage, VersionHelper helper) throws DebianizingException, InterruptedException {
 		BuildListener listener = runner.getListener();
 		if (scm instanceof SubversionSCM) {
-			String oldRevision = helper.getRevision();
-			helper.setRevision(getSVNRevision(build, runner, (SubversionSCM) scm, remoteDebian));
-			if ("".equals(oldRevision)) {
+			String oldUpstreamVersion = helper.getUpstreamVersion();
+			helper.setUpstreamVersion(getSVNRevision(build, runner, (SubversionSCM) scm, remoteDebian));
+			if ("".equals(oldUpstreamVersion)) {
 				runner.announce("No last revision known, using changes since last successful build to populate debian/changelog");
 				return getChangesSinceLastBuild(build, ourMessage);
 			} else {
-				runner.announce("Calculating changes since revision {0}.", oldRevision);
-				return getChangesFromSubversion(build, runner, (SubversionSCM) scm, remoteDebian, oldRevision, helper.getRevision(), ourMessage);
+				runner.announce("Calculating changes since revision {0}.", oldUpstreamVersion);
+				return getChangesFromSubversion(build, runner, (SubversionSCM) scm, remoteDebian, oldUpstreamVersion, helper.getUpstreamVersion(), ourMessage);
 			}
 		} else if (scm instanceof GitSCM) {
 			runner.announce("Calculating changes from git log");
