@@ -35,7 +35,7 @@ public class SmokeTest {
 	 */
 	@Test
 	public void smokeWithoutChangelog() throws Exception {
-		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "", false, false, true));
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", null, "", false, false, true));
 
 		mockTestDescriptor(builder);
 		Runner runner = mockBasicRunner(builder);
@@ -58,7 +58,7 @@ public class SmokeTest {
 	 */
 	@Test
 	public void smokeWithNewVersion() throws Exception {
-		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true));
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", null, "1.0", true, false, true));
 
 		mockTestDescriptor(builder);
 		Runner runner = mockBasicRunner(builder);
@@ -83,7 +83,7 @@ public class SmokeTest {
 	 */
 	@Test
 	public void smokeWithChangesetVersion() throws Exception {
-		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "1.0", true, false, true));
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", null, "1.0", true, false, true));
 
 		mockTestDescriptor(builder);
 		Runner runner = mockBasicRunner(builder);
@@ -110,6 +110,29 @@ public class SmokeTest {
 	}
 
 
+	/**
+	 * This test smokey-checks that the {@link DebianPackageBuilder} calls proper shell commands
+         * when building package with extra build options.
+	 *
+	 * @throws Exception
+	 */
+	@Test
+	public void smokeWithExtraBuildOptions() throws Exception {
+		DebianPackageBuilder builder = spy(new DebianPackageBuilder(".", "-B -foo", "", false, false, true));
+
+		mockTestDescriptor(builder);
+		Runner runner = mockBasicRunner(builder);
+
+		fire(builder);
+
+		verifyInstallAndKeyImport(runner);
+		verify(runner).runCommandForOutput(contains("dpkg-parsechangelog"), contains("debian"));
+		verify(runner).runCommand(contains("pbuilder-satisfydepends"), anyVararg());
+		verifyIrrelevantAndBuild(runner, "-B -foo");
+		verifyNoMoreInteractions(runner);
+	}
+
+
 
 	/**
 	 * Verify that actual ``debuild`` is called alongside not that interesting operations.
@@ -118,10 +141,23 @@ public class SmokeTest {
 	 * @throws DebianizingException
 	 */
 	private void verifyIrrelevantAndBuild(Runner runner) throws InterruptedException, DebianizingException {
+            verifyIrrelevantAndBuild(runner, null);
+        }
+
+
+	/**
+	 * Verify that actual ``debuild`` is called alongside not that interesting operations.
+	 * @param runner
+	 * @param debuildArgs
+	 * @throws InterruptedException
+	 * @throws DebianizingException
+	 */
+	private void verifyIrrelevantAndBuild(Runner runner, String debuildArgs) throws InterruptedException, DebianizingException {
 		verify(runner, atLeast(0)).announce(anyString());
 		verify(runner, atLeast(0)).getListener();
 		verify(runner, atLeast(0)).announce(anyString(), anyVararg());
-		verify(runner).runCommand(contains("debuild"));
+		String cmdRegex = ".* debuild .*" + (debuildArgs != null ? " " + debuildArgs : "");
+		verify(runner).runCommand(matches(cmdRegex));
 	}
 
 

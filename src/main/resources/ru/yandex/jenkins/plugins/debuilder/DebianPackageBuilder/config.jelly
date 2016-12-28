@@ -4,6 +4,11 @@
            description="Path to 'debian' folder, containing .deb metadata, relative to the workspace root.">
     <f:textbox />
   </f:entry>
+  <f:entry title="Extra Build Options"
+           field="extraBuildOptions"
+           description="Additional options to pass to 'debuild'.">
+    <f:textbox />
+  </f:entry>
   <f:optionalBlock title="Generate changelog?"
                    name="generateChangelog"
                    checked="${instance.generateChangelog}"
