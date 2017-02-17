@@ -55,7 +55,6 @@ public class DebianPackageStep extends AbstractStepImpl {
         this.signPackage = signPackage;
     }
 
-    @DataBoundSetter
     public void SetBuildEvenWhenThereAreNoChanges(boolean buildEvenWhenThereAreNoChanges) {
         this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
     }
