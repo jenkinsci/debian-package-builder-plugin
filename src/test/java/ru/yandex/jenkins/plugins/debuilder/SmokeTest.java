@@ -5,15 +5,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
-import hudson.model.FreeStyleBuild;
-import hudson.model.FreeStyleProject;
-import hudson.model.Result;
+import hudson.model.*;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.tools.ant.taskdefs.Parallel;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -117,7 +115,7 @@ public class SmokeTest {
 	 * @throws InterruptedException
 	 * @throws DebianizingException
 	 */
-	private void verifyIrrelevantAndBuild(Runner runner) throws InterruptedException, DebianizingException {
+	private void verifyIrrelevantAndBuild(Runner runner) throws InterruptedException, DebianizingException, IOException {
 		verify(runner, atLeast(0)).announce(anyString());
 		verify(runner, atLeast(0)).getListener();
 		verify(runner, atLeast(0)).announce(anyString(), anyVararg());
@@ -133,24 +131,24 @@ public class SmokeTest {
 	 * @throws InterruptedException
 	 * @throws ExecutionException
 	 */
-	private void fire(DebianPackageBuilder builder) throws IOException, InterruptedException, ExecutionException {
+	private void fire(DebianPackageBuilder builder) throws IOException, InterruptedException, ExecutionException  {
 		FreeStyleProject project = j.createFreeStyleProject();
 		project.getBuildersList().add(builder);
 		project.scheduleBuild2(0).get();
 	}
 
 
-	private Runner mockBasicRunner(DebianPackageBuilder builder) throws InterruptedException, DebianizingException {
+	private Runner mockBasicRunner(DebianPackageBuilder builder) throws InterruptedException, DebianizingException, IOException  {
 		Runner runner = mock(Runner.class);
 		doReturn(true).when(runner).runCommandForResult(any(String.class));
 		doReturn("").when(runner).runCommandForOutput(any(String.class));
 		doReturn("").when(runner).runCommandForOutput(any(String.class), anyVararg());
 
-		doReturn(runner).when(builder).makeRunner(Mockito.any(AbstractBuild.class), Mockito.any(Launcher.class), Mockito.any(BuildListener.class));
+		doReturn(runner).when(builder).makeRunner(Mockito.any(AbstractBuild.class), Mockito.any(FilePath.class), Mockito.any(Launcher.class),Mockito.any(TaskListener.class));
 		return runner;
 	}
 
-	public void verifyInstallAndKeyImport(Runner runner) throws InterruptedException, DebianizingException {
+	public void verifyInstallAndKeyImport(Runner runner) throws InterruptedException, DebianizingException, IOException  {
 		verify(runner).runCommand("sudo apt-get -y update");
 		verify(runner).runCommand("sudo apt-get -y install aptitude pbuilder");
 		verify(runner).runCommandForResult("gpg --list-key {0}", "foo@bar.com");

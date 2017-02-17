@@ -130,8 +130,8 @@ public class DebianPackageBuilder extends Builder implements SimpleBuildStep {
 			archiveArtifacts(build, workspace, runner, latestVersion);
 
 			build.addAction(new DebianBadge(latestVersion, remoteDebian));
-			EnvVars envVars = new EnvVars(DEBIAN_SOURCE_PACKAGE, source, DEBIAN_PACKAGE_VERSION, latestVersion);
-			build.getEnvironment(listener).add(Environment.create(envVars));
+			build.getEnvironment(listener).put(DEBIAN_SOURCE_PACKAGE, source);
+			build.getEnvironment(listener).put(DEBIAN_PACKAGE_VERSION, latestVersion);
 		} catch (InterruptedException e) {
 			logger.println(MessageFormat.format(ABORT_MESSAGE, PREFIX, e.getMessage()));
 		} catch (DebianizingException e) {
@@ -142,8 +142,7 @@ public class DebianPackageBuilder extends Builder implements SimpleBuildStep {
 	}
 
 	@SuppressWarnings("rawtypes") Runner makeRunner(Run build, FilePath workspace, Launcher launcher, TaskListener listener) {
-		Runner runner = new Runner(build, workspace, launcher, listener, PREFIX);
-		return runner;
+		return new Runner(build, workspace, launcher, listener, PREFIX);
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -200,7 +199,7 @@ public class DebianPackageBuilder extends Builder implements SimpleBuildStep {
 		} else {
 			helper = new VersionHelper(nextVersion);
 		}
-		SCM scm = build.getParent().getScm();
+		SCM scm = ((AbstractProject) build.getParent()).getScm();
 		String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
 		List<Change> changes = ChangesExtractor.getChanges(build, runner, scm, remoteDebian, ourMessage, helper);
 

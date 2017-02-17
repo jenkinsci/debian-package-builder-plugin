@@ -144,7 +144,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			return true;
 		}
 
-		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
+		Runner runner = new DebUtils.Runner(build, build.getWorkspace(), launcher, listener, PREFIX);
 
 		FilePath[] tempFiles = null;
 		try {
@@ -162,7 +162,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 			boolean wereBuilds = false;
 
-			for (String module: DebianPackageBuilder.getRemoteModules(build, runner)) {
+			for (String module: DebianPackageBuilder.getRemoteModules(build, build.getWorkspace(), runner)) {
 				if (! builtModules.contains(new FilePath(build.getWorkspace().getChannel(), module).child("debian").getRemote())) {
 					runner.announce("Module in {0} was not built - not releasing", module);
 					continue;
@@ -219,7 +219,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 	private void commitToGitAndPush(final AbstractBuild<?, ?> build, final Runner runner, GitSCM scm, String commitMessage) throws DebianizingException {
 		try {
-			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, commitMessage, DebianPackageBuilder.getRemoteModules(build, runner));
+			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, commitMessage, DebianPackageBuilder.getRemoteModules(build, build.getWorkspace(), runner));
 
 			if (build.getWorkspace().act(helper)) {
 				runner.announce("Successfully commited to git");
@@ -235,9 +235,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 
 	private void commitToSVN(final AbstractBuild<?, ?> build, final Runner runner, SubversionSCM svn, String commitMessage) throws DebianizingException {
 		try {
-			for (String module: DebianPackageBuilder.getRemoteModules(build, runner)) {
+			for (String module: DebianPackageBuilder.getRemoteModules(build, build.getWorkspace(), runner)) {
 				ISVNAuthenticationProvider authenticationProvider = svn.createAuthenticationProvider(build.getProject(), 
-					ChangesExtractor.findOurLocation(build, svn, runner, module));
+					ChangesExtractor.findOurLocation(build, build.getWorkspace(), svn, runner, module));
 
 				SVNCommitHelper helper = new SVNCommitHelper(authenticationProvider, module, commitMessage);
 				runner.announce("Commited revision <{0}> of <{2}> with message <{1}>", runner.getChannel().call(helper), commitMessage, module);
