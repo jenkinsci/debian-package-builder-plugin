@@ -8,6 +8,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.plugins.git.GitChangeSet;
 import hudson.plugins.git.GitSCM;
+import hudson.plugins.git.extensions.impl.RelativeTargetDirectory;
 import hudson.scm.*;
 import jenkins.model.Jenkins;
 
@@ -140,9 +141,15 @@ public class ChangesExtractor {
 			FilePath workspace = build.getWorkspace();
 //			method signature changed in latest Git plugin, @since 2.3.4
 			GitClient cli = scm.createClient(listener, environment, build, workspace);
+
+			String relativeTargetDirectory = "";
+			if(scm.getExtensions().get(RelativeTargetDirectory.class) != null) {
+				relativeTargetDirectory = scm.getExtensions().get(RelativeTargetDirectory.class).getRelativeTargetDir();
+			}
+
 			DescriptorImpl descriptor = (DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class);
 			PersonIdent account = new PersonIdent(descriptor.getAccountName(), descriptor.getAccountEmail());
-			return getChangesFromGit(cli, workspace, remoteDebian, account);
+			return getChangesFromGit(cli, workspace, relativeTargetDirectory, remoteDebian, account);
 		} catch (IOException e) {
 			throw new DebianizingException("IOException: " + e.getMessage(), e);
 		} catch (InterruptedException e) {
@@ -150,7 +157,7 @@ public class ChangesExtractor {
 		}
 	}
 
-	static List<Change> getChangesFromGit(GitClient cli, FilePath workspace, String remoteDebian, PersonIdent account) throws InterruptedException {
+	static List<Change> getChangesFromGit(GitClient cli, FilePath workspace, String relativeTargetDirectory, String remoteDebian, PersonIdent account) throws InterruptedException {
 		String changelogPath = remoteDebian + "/changelog";
 		LinkedList<Change> changesSinceLastChangelogModification = new LinkedList<Change>();
 		LinkedList<Change> changesSinceLastChangelogModificationByPlugin = new LinkedList<Change>();
@@ -163,7 +170,7 @@ public class ChangesExtractor {
 			Change change = new Change(changeSet.getAuthorName(), changeSet.getMsg());
 
 			for (GitChangeSet.Path path : changeSet.getPaths()) {
-				String filePath = workspace.child(path.getPath()).getRemote();
+				String filePath = workspace.child(relativeTargetDirectory).child(path.getPath()).getRemote();
 				if (filePath.equals(changelogPath)) {
 					if (changeSet.getAuthorName().equals(account.getName())
 						& email.equals(account.getEmailAddress())) {
