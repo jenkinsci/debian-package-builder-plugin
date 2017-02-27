@@ -4,12 +4,16 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>2.2</version><!-- which version of Jenkins is this plugin built against? -->
+    <version>2.2</version>
   </parent>
+
+  <properties>
+    <jenkins.version>1.651.3</jenkins.version>
+  </properties>
 
   <groupId>ru.yandex.jenkins.plugins.debuilder</groupId>
   <artifactId>debian-package-builder</artifactId>
-  <version>1.6.13</version>
+  <version>1.6.18-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <url>http://wiki.jenkins-ci.org/display/JENKINS/Debian+Package+Builder+Plugin</url>
   <name>Debian Package Builder</name>
@@ -135,8 +139,5 @@
       </plugin>
     </plugins>
   </build>
-  <properties>
-    <jenkins.version>1.651.3</jenkins.version>
-  </properties>
 
 </project>
