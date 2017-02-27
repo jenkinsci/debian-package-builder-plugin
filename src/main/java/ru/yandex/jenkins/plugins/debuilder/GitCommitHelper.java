@@ -1,8 +1,7 @@
 package ru.yandex.jenkins.plugins.debuilder;
 
 import hudson.EnvVars;
-import hudson.model.TaskListener;
-import hudson.model.AbstractBuild;
+import hudson.model.*;
 import hudson.plugins.git.GitSCM;
 import hudson.remoting.VirtualChannel;
 
@@ -17,6 +16,7 @@ import org.eclipse.jgit.lib.PersonIdent;
 import org.jenkinsci.plugins.gitclient.Git;
 import org.jenkinsci.plugins.gitclient.GitClient;
 
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 import ru.yandex.jenkins.plugins.debuilder.DebianPackageBuilder.DescriptorImpl;
 
@@ -39,12 +39,14 @@ public class GitCommitHelper extends SlaveToMasterFileCallable<Boolean> {
 	private final String commitMessage;
 	private Collection<String> modules;
 
-	public GitCommitHelper(AbstractBuild<?, ?> build, GitSCM scm, Runner runner, String commitMessage, Collection<String> modules) throws IOException, InterruptedException {
+	public GitCommitHelper(Run<?, ?> run, GitSCM scm, Runner runner, String commitMessage, Collection<String> modules) throws IOException, InterruptedException {
 		this.commitMessage = commitMessage;
 		this.modules = modules;
-		this.environment = build.getEnvironment(runner.getListener());
+		this.environment = run.getEnvironment(runner.getListener());
 		this.listener = runner.getListener();
-		this.gitExe = scm.getGitExe(build.getBuiltOn(), listener);
+		Computer c = Computer.currentComputer();
+		Node n = c == null?null:c.getNode();
+		this.gitExe = scm.getGitExe(n, listener);
 		this.gitPrefix = scm.getRelativeTargetDir();
 		DescriptorImpl descriptor = (DescriptorImpl) Jenkins.getInstance().getDescriptor(DebianPackageBuilder.class);
 		this.accountName = descriptor.getAccountName();

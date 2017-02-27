@@ -18,7 +18,7 @@ import org.kohsuke.stapler.DataBoundSetter;
  * @author mavlyutov
  */
 
-public class DebianPackageStep extends AbstractStepImpl {
+public class DebianPackageBuilderStep extends AbstractStepImpl {
 
     private String pathToDebian;
     private String nextVersion;
@@ -27,7 +27,7 @@ public class DebianPackageStep extends AbstractStepImpl {
     private boolean buildEvenWhenThereAreNoChanges = true;
 
     @DataBoundConstructor
-    public DebianPackageStep(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges) {
+    public DebianPackageBuilderStep(String pathToDebian, String nextVersion, Boolean generateChangelog, Boolean signPackage, Boolean buildEvenWhenThereAreNoChanges) {
         this.pathToDebian = pathToDebian;
         this.nextVersion = nextVersion;
         this.generateChangelog = generateChangelog;
@@ -87,7 +87,7 @@ public class DebianPackageStep extends AbstractStepImpl {
 
         @Override
         public String getFunctionName() {
-            return "debianPackage";
+            return "debianPackageBuild";
         }
 
         @Override
@@ -101,7 +101,7 @@ public class DebianPackageStep extends AbstractStepImpl {
         private static final long serialVersionUID = 1;
 
         @Inject
-        private transient DebianPackageStep step;
+        private transient DebianPackageBuilderStep step;
 
         @StepContextParameter
         private transient TaskListener listener;

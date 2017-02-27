@@ -9,6 +9,7 @@ import hudson.remoting.VirtualChannel;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.MessageFormat;
+import java.util.Map;
 
 import com.google.common.io.CharStreams;
 
@@ -34,6 +35,13 @@ public class DebUtils {
 			}
 		}
 
+		public void runCommand(String cwd, Map<String, String> envs, String commandTemplate, Object... arguments) throws IOException, InterruptedException, DebianizingException {
+			String command = MessageFormat.format(commandTemplate, arguments);
+			if (!this.runCommandForResult(command, cwd, envs)) {
+				throw new DebianizingException(MessageFormat.format("Command <{0}> failed", command));
+			}
+		}
+
 		public void runCommand(String commandTemplate, Object... arguments) throws IOException, InterruptedException, DebianizingException {
 			String command = MessageFormat.format(commandTemplate, arguments);
 			if (!this.runCommandForResult(command)) {
@@ -43,7 +51,12 @@ public class DebUtils {
 
 		public boolean runCommandForResult(String command) throws IOException, InterruptedException, DebianizingException {
 			announce("running command <{0}>", command);
-			return launcher.launch().pwd(workspace).cmds(command).stdout(listener).join() == 0;
+			return launcher.launch().pwd(workspace).cmdAsSingleString(command).stdout(listener).join() == 0;
+		}
+
+		public boolean runCommandForResult(String command, String cwd, Map<String, String> envs) throws IOException, InterruptedException, DebianizingException {
+			announce("running command <{0}>", command);
+			return launcher.launch().pwd(cwd).envs(envs).cmdAsSingleString(command).stdout(listener).join() == 0;
 		}
 
 		public boolean runCommandForResult(String commandTemplate, Object ... arguments) throws IOException, InterruptedException, DebianizingException {

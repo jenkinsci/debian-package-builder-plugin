@@ -36,6 +36,8 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+
 import ru.yandex.jenkins.plugins.debuilder.DebUtils.Runner;
 
 import javax.annotation.Nonnull;
@@ -96,7 +98,9 @@ public class DebianPackageBuilder extends Builder implements SimpleBuildStep {
 			runner.runCommand("sudo apt-get -y update");
 			runner.runCommand("sudo apt-get -y install aptitude pbuilder");
 
-			importKeys(workspace, runner);
+			if (signPackage) {
+				importKeys(workspace, runner);
+			}
 
 			Map<String, String> changelog = parseChangelog(runner, remoteDebian);
 
@@ -116,16 +120,16 @@ public class DebianPackageBuilder extends Builder implements SimpleBuildStep {
 				writeChangelog(build, listener, remoteDebian, runner, changes, distribution);
 			}
 
-			runner.runCommand("cd ''{0}'' && sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control", remoteDebian);
-			String package_command = String.format("cd '%1$s' && debuild --check-dirname-level 0 --no-tgz-check ", remoteDebian);
+			runner.runCommand(remoteDebian, new HashMap<String, String>(),"sudo /usr/lib/pbuilder/pbuilder-satisfydepends --control control");
+			String package_command = "debuild --check-dirname-level 0 --no-tgz-check ";
 			if (signPackage) {
-				package_command += String.format("-k%1$s -p'gpg --no-tty --passphrase %2$s'", getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());
+				package_command += String.format("-k%1$s -p''gpg --no-tty --passphrase %2$s''", getDescriptor().getAccountEmail(), getDescriptor().getPassphrase());
 			}
 			else
 			{
 				package_command += "-us -uc";
 			}
-			runner.runCommand(package_command);
+			runner.runCommand(remoteDebian, new HashMap<String, String>(), package_command);
 
 			archiveArtifacts(build, workspace, runner, latestVersion);
 
@@ -199,9 +203,16 @@ public class DebianPackageBuilder extends Builder implements SimpleBuildStep {
 		} else {
 			helper = new VersionHelper(nextVersion);
 		}
-		SCM scm = ((AbstractProject) build.getParent()).getScm();
-		String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
-		List<Change> changes = ChangesExtractor.getChanges(build, runner, scm, remoteDebian, ourMessage, helper);
+		SCM scm;
+		List<Change> changes;
+		if (build.getParent() instanceof WorkflowJob) {
+			scm = ((WorkflowJob) build.getParent()).getTypicalSCM();
+			changes = new ArrayList<Change>();
+		}else{
+			scm = ((AbstractProject) build.getParent()).getScm();
+			String ourMessage = DebianPackagePublisher.getUsedCommitMessage(build);
+			changes = ChangesExtractor.getChanges(build, runner, scm, remoteDebian, ourMessage, helper);
+		}
 
 		return new ImmutablePair<VersionHelper, List<Change>>(helper, changes);
 	}
@@ -273,16 +284,23 @@ public class DebianPackageBuilder extends Builder implements SimpleBuildStep {
 		return message.replaceAll("\\'", "");
 	}
 
+	private Map<String, String> getDchEnv(String mail, String name){
+		Map<String, String> r = new HashMap<String, String>();
+		r.put("DEBEMAIL", mail);
+		r.put("DEBFULLNAME", name);
+		return r;
+	}
+
 	private void addChange(Runner runner, String remoteDebian, Change change, String distribution)
 			throws IOException, InterruptedException, DebianizingException {
 		runner.announce("Got changeset entry: {0} by {1}", clearMessage(change.getMessage()), change.getAuthor());
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 --distribution ''{4}'' --append -- ''{3}''", getDescriptor().getAccountEmail(), change.getAuthor(), remoteDebian, clearMessage(change.getMessage()), distribution);
+		runner.runCommand(remoteDebian, getDchEnv(getDescriptor().getAccountEmail(), getDescriptor().getAccountName()), "dch --check-dirname-level 0 --distribution ''{0}'' --append -- ''{1}''", clearMessage(change.getMessage()), distribution);
 	}
 
 	private void startVersion(Runner runner, String remoteDebian, VersionHelper helper, String message, String distribution)
 			throws IOException, InterruptedException, DebianizingException {
 		runner.announce("Starting version <{0}> with message <{1}>", helper, clearMessage(message));
-		runner.runCommand("export DEBEMAIL={0} && export DEBFULLNAME=''{1}'' && cd ''{2}'' && dch --check-dirname-level 0 -b --distribution ''{5}'' --newVersion {3} -- ''{4}''", getDescriptor().getAccountEmail(), getDescriptor().getAccountName(), remoteDebian, helper, clearMessage(message), distribution);
+		runner.runCommand(remoteDebian, getDchEnv(getDescriptor().getAccountEmail(), getDescriptor().getAccountName()), "dch --check-dirname-level 0 -b --distribution ''{2}'' --newVersion {0} -- ''{1}''", helper, clearMessage(message), distribution);
 	}
 
 	/**
