@@ -137,6 +137,11 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return (DescriptorImpl) super.getDescriptor();
 	}
 
+	@Override
+	public boolean perform(@Nonnull AbstractBuild<?, ?> run, @Nonnull Launcher launcher, @Nonnull BuildListener listener) throws IOException {
+		return perform(run, run.getWorkspace(), launcher, listener);
+	}
+
 	public boolean perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) throws IOException {
 		PrintStream logger = listener.getLogger();
 
@@ -175,7 +180,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			boolean wereBuilds = false;
 
 			for (String module : builtModules) {
-				String path = workspace + "/" + module;
+				String path = workspace.child(run.getEnvironment(runner.getListener()).expand(module)).getRemote();
 				if (!runner.runCommandForResult(command, path, new HashMap<String, String>())) {
 					throw new DebianizingException("Debrelease failed");
 				}
@@ -183,7 +188,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 			}
 			if (wereBuilds && commitChanges) {
 				String expandedCommitMessage = getExpandedCommitMessage(run, listener);
-				commitChanges(run, workspace, runner, expandedCommitMessage);
+				commitChanges(builtModules, run, workspace, runner, expandedCommitMessage);
 			}
 
 		} finally {
@@ -225,7 +230,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return env.expand(getCommitMessage());
 	}
 
-	private void commitChanges(Run<?, ?> run, FilePath workspace, Runner runner, String commitMessage) throws DebianizingException, IOException, InterruptedException {
+	private void commitChanges(List<String> builtModules, Run<?, ?> run, FilePath workspace, Runner runner, String commitMessage) throws DebianizingException, IOException, InterruptedException {
 		SCM scm;
 		if (run.getParent() instanceof WorkflowJob) {
 			scm = ((WorkflowJob) run.getParent()).getTypicalSCM();
@@ -234,17 +239,17 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 
 		if (scm instanceof SubversionSCM) {
-			commitToSVN(run, workspace, runner, (SubversionSCM)scm, commitMessage);
+			commitToSVN(builtModules, run, workspace, runner, (SubversionSCM)scm, commitMessage);
 		} else if (scm instanceof GitSCM) {
-			commitToGitAndPush(run, workspace, runner, (GitSCM)scm, commitMessage);
+			commitToGitAndPush(builtModules, run, workspace, runner, (GitSCM)scm, commitMessage);
 		} else {
 			throw new DebianizingException("SCM used is not a know one but " + scm.getType());
 		}
 	}
 
-	private void commitToGitAndPush(final Run<?, ?> run, final FilePath workspace, final Runner runner, GitSCM scm, String commitMessage) throws DebianizingException {
+	private void commitToGitAndPush(final List<String> builtModules, final Run<?, ?> run, final FilePath workspace, final Runner runner, GitSCM scm, String commitMessage) throws DebianizingException {
 		try {
-			GitCommitHelper helper = new GitCommitHelper(run, scm, runner, commitMessage, DebianPackageBuilder.getRemoteModules(run, workspace, runner));
+			GitCommitHelper helper = new GitCommitHelper(run, scm, runner, commitMessage, builtModules);
 
 			if (workspace.act(helper)) {
 				runner.announce("Successfully commited to git");
@@ -258,9 +263,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 	}
 
-	private void commitToSVN(final Run<?, ?> run, final FilePath workspace, final Runner runner, SubversionSCM svn, String commitMessage) throws DebianizingException {
+	private void commitToSVN(final List<String> builtModules, final Run<?, ?> run, final FilePath workspace, final Runner runner, SubversionSCM svn, String commitMessage) throws DebianizingException {
 		try {
-			for (String module: DebianPackageBuilder.getRemoteModules(run, workspace, runner)) {
+			for (String module: builtModules) {
 				ISVNAuthenticationProvider authenticationProvider = svn.createAuthenticationProvider(run.getParent(),
 					ChangesExtractor.findOurLocation(run, workspace, svn, runner, module));
 

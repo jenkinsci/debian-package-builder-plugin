@@ -67,11 +67,9 @@ public class GitCommitHelper extends SlaveToMasterFileCallable<Boolean> {
 				.getClient();
 
 		if (git.hasGitRepo()) {
-			
+
 			PersonIdent person = new PersonIdent(accountName, accountEmail);
-			for (String module: modules) {
-				git.add(new File(module, "debian/changelog").getCanonicalPath());
-			}
+			git.add(new File(gitClonePath.getPath(), "debian/changelog").getCanonicalPath());
 			git.setAuthor(person);
 			git.setCommitter(person);
 			git.commit(commitMessage);
