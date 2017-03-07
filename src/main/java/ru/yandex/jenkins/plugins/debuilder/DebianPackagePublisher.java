@@ -335,7 +335,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 
 		public FormValidation doCheckMethod(@QueryParameter String method) {
-			if (method != "scpb") {
+			if (!method.equals("scpb")) {
 				return FormValidation.error("This method is not supported yet");
 			} else {
 				return FormValidation.ok();

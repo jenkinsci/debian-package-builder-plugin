@@ -55,7 +55,7 @@ public class DebianPackageBuilderStep extends AbstractStepImpl {
         this.signPackage = signPackage;
     }
 
-    public void SetBuildEvenWhenThereAreNoChanges(boolean buildEvenWhenThereAreNoChanges) {
+    public void setBuildEvenWhenThereAreNoChanges(boolean buildEvenWhenThereAreNoChanges) {
         this.buildEvenWhenThereAreNoChanges = buildEvenWhenThereAreNoChanges;
     }
 

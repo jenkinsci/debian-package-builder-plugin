@@ -170,7 +170,7 @@ public class ChangesExtractor {
 				String filePath = workspace.child(relativeTargetDirectory).child(path.getPath()).getRemote();
 				if (filePath.equals(changelogPath)) {
 					if (changeSet.getAuthorName().equals(account.getName())
-						& email.equals(account.getEmailAddress())) {
+						&& email.equals(account.getEmailAddress())) {
 						return changesSinceLastChangelogModificationByPlugin;
 					} else {
 						firstChangelogModificationFound = true;
