@@ -4,13 +4,7 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.BuildBadgeAction;
-import hudson.model.BuildListener;
-import hudson.model.Result;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.Descriptor;
-import hudson.model.Project;
+import hudson.model.*;
 import hudson.plugins.git.GitSCM;
 import hudson.scm.SCM;
 import hudson.scm.SubversionSCM;
@@ -38,6 +32,7 @@ import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.lang3.text.StrSubstitutor;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -64,8 +59,8 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		this.repoId = repoId;
 	}
 
-	private DebianPackageRepo getRepo(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException {
-		String expandedRepo = build.getEnvironment(runner.getListener()).expand(repoId);
+	private DebianPackageRepo getRepo(Run<?, ?> run, Runner runner) throws IOException, InterruptedException {
+		String expandedRepo = run.getEnvironment(runner.getListener()).expand(repoId);
 
 		for(DebianPackageRepo repo: getDescriptor().getRepositories()) {
 			if (repo.getName().equals(expandedRepo)) {
@@ -77,8 +72,9 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static String getUsedCommitMessage(AbstractBuild build) {
-		DescribableList<Publisher, Descriptor<Publisher>> publishersList = ((Project)build.getProject()).getPublishersList();
+	public static String getUsedCommitMessage(Run build) {
+		((Project)build.getParent()).getPublishersList();
+		DescribableList<Publisher, Descriptor<Publisher>> publishersList = ((Project)build.getParent()).getPublishersList();
 		for (Publisher publisher: publishersList) {
 			if (publisher instanceof DebianPackagePublisher) {
 				return ((DebianPackagePublisher) publisher).commitMessage;
@@ -88,19 +84,19 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		return "";
 	}
 
-	private FilePath getRemoteKeyPath(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException {
+	private FilePath getRemoteKeyPath(Run<?, ?> run, FilePath workspace,  Runner runner) throws IOException, InterruptedException {
 		String keysDir = "debian-package-builder-keys";
 
-		String relativeKeyPath = new File(keysDir, getRepo(build, runner).getKeypath()).getPath();
+		String relativeKeyPath = new File(keysDir, getRepo(run, runner).getKeypath()).getPath();
 		File absoluteKeyPath = new File (Jenkins.getInstance().getRootDir(), relativeKeyPath);
 		FilePath localKey = new FilePath(absoluteKeyPath);
 
-		FilePath remoteKey = build.getWorkspace().createTextTempFile("private", "key", localKey.readToString());
+		FilePath remoteKey = workspace.createTextTempFile("private", "key", localKey.readToString());
 		remoteKey.chmod(0600);
 		return remoteKey;
 	}
 
-	private FilePath[] generateDuploadConf(AbstractBuild<?, ?> build, Runner runner) throws IOException, InterruptedException, DebianizingException {
+	private FilePath[] generateDuploadConf(Run<?, ?> build, FilePath workspace, Runner runner) throws IOException, InterruptedException, DebianizingException {
 		String confTemplate =
 				"package config;\n\n" +
 				"$default_host = '${name}';\n\n" +
@@ -117,7 +113,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		Map<String, String> values = new HashMap<String, String>();
 
 		DebianPackageRepo repo = getRepo(build, runner);
-		FilePath keyPath = getRemoteKeyPath(build, runner);
+		FilePath keyPath = getRemoteKeyPath(build, workspace, runner);
 
 		values.put("name", repo.getName());
 		values.put("method", repo.getMethod());
@@ -129,7 +125,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		StrSubstitutor substitutor = new StrSubstitutor(values);
 		String conf = substitutor.replace(confTemplate);
 
-		FilePath duploadConf = build.getWorkspace().createTempFile("dupload", "conf");
+		FilePath duploadConf = workspace.createTempFile("dupload", "conf");
 		duploadConf.touch(System.currentTimeMillis()/1000);
 		duploadConf.write(conf, "UTF-8");
 
@@ -142,55 +138,59 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 	}
 
 	@Override
-	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException {
+	public boolean perform(@Nonnull AbstractBuild<?, ?> run, @Nonnull Launcher launcher, @Nonnull BuildListener listener) throws IOException {
+		return perform(run, run.getWorkspace(), launcher, listener);
+	}
+
+	public boolean perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) throws IOException {
 		PrintStream logger = listener.getLogger();
 
-		if (build.getResult() != null && build.getResult().isWorseThan(Result.SUCCESS)) {
+		if (run.getResult() != null && run.getResult().isWorseThan(Result.SUCCESS)) {
 			logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, "Build is not success, will not execute debrelease"));
 			return true;
 		}
 
-		Runner runner = new DebUtils.Runner(build, launcher, listener, PREFIX);
+		Runner runner = new DebUtils.Runner(run, workspace, launcher, listener, PREFIX);
 
+		try {
+			List<String> builtModules = getBuilds(run, workspace, runner);
+			doDebrelease(builtModules, launcher, run, workspace, listener);
+
+		} catch (InterruptedException e) {
+			logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
+			run.setResult(Result.UNSTABLE);
+		} catch (DebianizingException e) {
+			logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
+			run.setResult(Result.UNSTABLE);
+		}
+		return true;
+	}
+
+	public void doDebrelease(List<String> builtModules, @Nonnull Launcher launcher, @Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull TaskListener listener) throws IOException, InterruptedException, DebianizingException {
+		DebUtils.Runner runner = new DebUtils.Runner(run, workspace, launcher, listener, PREFIX);
+		PrintStream logger = listener.getLogger();
 		FilePath[] tempFiles = null;
 		try {
 			runner.runCommand("sudo apt-get -y install dupload devscripts");
-			tempFiles = generateDuploadConf(build, runner);
+
+			tempFiles = generateDuploadConf(run, workspace, runner);
 			String duploadConf = tempFiles[0].getRemote();
-
-			List<String> builtModules = new ArrayList<String>();
-
-			for (BuildBadgeAction action: build.getBadgeActions()) {
-				if (action instanceof DebianBadge) {
-					builtModules.add(((DebianBadge) action).getModule());
-				}
-			}
+			String command = MessageFormat.format("bash -c \"cp ''{0}'' dupload.conf && trap ''rm -f dupload.conf'' EXIT && debrelease -c\"", duploadConf);
 
 			boolean wereBuilds = false;
 
-			for (String module: DebianPackageBuilder.getRemoteModules(build, runner)) {
-				if (! builtModules.contains(new FilePath(build.getWorkspace().getChannel(), module).child("debian").getRemote())) {
-					runner.announce("Module in {0} was not built - not releasing", module);
-					continue;
-				}
-
-				if (!runner.runCommandForResult("cd ''{0}'' && cp ''{1}'' dupload.conf && trap ''rm -f dupload.conf'' EXIT && debrelease -c", module, duploadConf)) {
+			for (String module : builtModules) {
+				String path = workspace.child(run.getEnvironment(runner.getListener()).expand(module)).getRemote();
+				if (!runner.runCommandForResult(command, path, new HashMap<String, String>())) {
 					throw new DebianizingException("Debrelease failed");
 				}
-
 				wereBuilds = true;
 			}
-
 			if (wereBuilds && commitChanges) {
-				String expandedCommitMessage = getExpandedCommitMessage(build, listener);
-				commitChanges(build, runner, expandedCommitMessage);
+				String expandedCommitMessage = getExpandedCommitMessage(run, listener);
+				commitChanges(builtModules, run, workspace, runner, expandedCommitMessage);
 			}
-		} catch (InterruptedException e) {
-			logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
-			build.setResult(Result.UNSTABLE);
-		} catch (DebianizingException e) {
-			logger.println(MessageFormat.format(DebianPackageBuilder.ABORT_MESSAGE, PREFIX, e.getMessage()));
-			build.setResult(Result.UNSTABLE);
+
 		} finally {
 			if (tempFiles != null) {
 				for (FilePath tempFile : tempFiles) {
@@ -201,33 +201,57 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 					}
 				}
 			}
-		}
 
-		return true;
+		};
 	}
 
-	private String getExpandedCommitMessage(AbstractBuild<?, ?> build, BuildListener listener) throws IOException, InterruptedException {
-		EnvVars env = build.getEnvironment(listener);
+	private List<String> getBuilds(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Runner runner) throws DebianizingException{
+		List<String> modules = new ArrayList<String>();
+		List<String> builtModules = new ArrayList<String>();
+		for (BuildBadgeAction action: run.getBadgeActions()) {
+            if (action instanceof DebianBadge) {
+                modules.add(((DebianBadge) action).getModule());
+            }
+        }
+
+		for (String module: DebianPackageBuilder.getRemoteModules(run, workspace, runner)) {
+			if (!modules.contains(new FilePath(workspace.getChannel(), module).child("debian").getRemote())) {
+				runner.announce("Module in {0} was not built - not releasing", module);
+			}else{
+				builtModules.add(module);
+			}
+		}
+
+		return builtModules;
+	}
+
+	private String getExpandedCommitMessage(Run<?, ?> run, TaskListener listener) throws IOException, InterruptedException {
+		EnvVars env = run.getEnvironment(listener);
 		return env.expand(getCommitMessage());
 	}
 
-	private void commitChanges(AbstractBuild<?, ?> build, Runner runner, String commitMessage) throws DebianizingException, IOException, InterruptedException {
-		SCM scm = build.getProject().getScm();
+	private void commitChanges(List<String> builtModules, Run<?, ?> run, FilePath workspace, Runner runner, String commitMessage) throws DebianizingException, IOException, InterruptedException {
+		SCM scm;
+		if (run.getParent() instanceof WorkflowJob) {
+			scm = ((WorkflowJob) run.getParent()).getTypicalSCM();
+		}else{
+			scm = ((AbstractProject) run.getParent()).getScm();
+		}
 
 		if (scm instanceof SubversionSCM) {
-			commitToSVN(build, runner, (SubversionSCM)scm, commitMessage);
+			commitToSVN(builtModules, run, workspace, runner, (SubversionSCM)scm, commitMessage);
 		} else if (scm instanceof GitSCM) {
-			commitToGitAndPush(build, runner, (GitSCM)scm, commitMessage);
+			commitToGitAndPush(builtModules, run, workspace, runner, (GitSCM)scm, commitMessage);
 		} else {
 			throw new DebianizingException("SCM used is not a know one but " + scm.getType());
 		}
 	}
 
-	private void commitToGitAndPush(final AbstractBuild<?, ?> build, final Runner runner, GitSCM scm, String commitMessage) throws DebianizingException {
+	private void commitToGitAndPush(final List<String> builtModules, final Run<?, ?> run, final FilePath workspace, final Runner runner, GitSCM scm, String commitMessage) throws DebianizingException {
 		try {
-			GitCommitHelper helper = new GitCommitHelper(build, scm, runner, commitMessage, DebianPackageBuilder.getRemoteModules(build, runner));
+			GitCommitHelper helper = new GitCommitHelper(run, scm, runner, commitMessage, builtModules);
 
-			if (build.getWorkspace().act(helper)) {
+			if (workspace.act(helper)) {
 				runner.announce("Successfully commited to git");
 			} else {
 				throw new DebianizingException("Failed to commit to git");
@@ -239,11 +263,11 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 	}
 
-	private void commitToSVN(final AbstractBuild<?, ?> build, final Runner runner, SubversionSCM svn, String commitMessage) throws DebianizingException {
+	private void commitToSVN(final List<String> builtModules, final Run<?, ?> run, final FilePath workspace, final Runner runner, SubversionSCM svn, String commitMessage) throws DebianizingException {
 		try {
-			for (String module: DebianPackageBuilder.getRemoteModules(build, runner)) {
-				ISVNAuthenticationProvider authenticationProvider = svn.createAuthenticationProvider(build.getProject(), 
-					ChangesExtractor.findOurLocation(build, svn, runner, module));
+			for (String module: builtModules) {
+				ISVNAuthenticationProvider authenticationProvider = svn.createAuthenticationProvider(run.getParent(),
+					ChangesExtractor.findOurLocation(run, workspace, svn, runner, module));
 
 				SVNCommitHelper helper = new SVNCommitHelper(authenticationProvider, module, commitMessage);
 				runner.announce("Commited revision <{0}> of <{2}> with message <{1}>", runner.getChannel().call(helper), commitMessage, module);
@@ -311,7 +335,7 @@ public class DebianPackagePublisher extends Recorder implements Serializable {
 		}
 
 		public FormValidation doCheckMethod(@QueryParameter String method) {
-			if (method != "scpb") {
+			if (!method.equals("scpb")) {
 				return FormValidation.error("This method is not supported yet");
 			} else {
 				return FormValidation.ok();
